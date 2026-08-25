@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, DateTime, Index
 from sqlalchemy.orm import relationship
 
-from database import Base
+from backend.api.database import Base
 
 
 def _uuid_str() -> str:

@@ -7,8 +7,8 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import models
-import schemas
+import backend.api.models as models
+import backend.api.schemas as schemas
 
 
 def create_statistic(db: Session, payload: schemas.StatisticCreate) -> models.Statistics:

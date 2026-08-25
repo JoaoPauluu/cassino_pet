@@ -13,10 +13,10 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-import crud
-import models
-import schemas
-from database import engine, get_db
+import backend.api.crud as crud
+import backend.api.models as models
+import backend.api.schemas as schemas
+from backend.api.database import engine, get_db
 
 # Creates casino.db and the statistics table on first run.
 # Safe to call every startup: it only creates tables that don't exist yet,
