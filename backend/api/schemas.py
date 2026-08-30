@@ -12,8 +12,7 @@ GameStatus = Literal["waiting_for_bets", "running", "ended"]
 class StatisticCreate(BaseModel):
     """Body for POST /statistics — a game client reporting one round's result."""
 
-    player: str = Field(..., min_length=1, examples=["joao123"])
-    device: int = Field(..., ge=0, description="ID of the device/terminal the round was played on")
+    player: str = Field(..., min_length=1, description="Player id (see /players)")
     game: str = Field(..., min_length=1, examples=["roulette", "crash"])
     bet: float = Field(..., ge=0, description="Amount wagered")
     win: float = Field(..., ge=0, description="Amount returned to the player (0 if they lost)")
@@ -21,8 +20,9 @@ class StatisticCreate(BaseModel):
 
 class StatisticOut(BaseModel):
     id: str
-    player: str
-    device: int
+    player: str = Field(..., description="Player id")
+    player_name: str
+    device: str
     game: str
     bet: float
     win: float
@@ -31,6 +31,20 @@ class StatisticOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @classmethod
+    def from_row(cls, row) -> "StatisticOut":
+        return cls(
+            id=row.id,
+            player=row.player_id,
+            player_name=row.player.name,
+            device=row.player.device,
+            game=row.game,
+            bet=row.bet,
+            win=row.win,
+            net=row.net,
+            created_at=row.created_at,
+        )
+
 
 class StatisticList(BaseModel):
     total: int
@@ -38,9 +52,10 @@ class StatisticList(BaseModel):
 
 
 class PlayerSummary(BaseModel):
-    """Aggregated view for GET /statistics/summary and /players/{player}/summary."""
+    """Aggregated view for GET /statistics/summary and /players/{player_id}/summary."""
 
-    player: Optional[str] = None
+    player_id: Optional[str] = None
+    player_name: Optional[str] = None
     game: Optional[str] = None
     rounds_played: int
     total_bet: float

@@ -38,9 +38,9 @@ class ConflictError(CasinoError):
 
 
 def create_statistic(db: Session, payload: schemas.StatisticCreate) -> models.Statistics:
+    player = get_player(db, payload.player)  # raises NotFoundError if the id doesn't exist
     row = models.Statistics(
-        player=payload.player,
-        device=payload.device,
+        player_id=player.id,
         game=payload.game,
         bet=payload.bet,
         win=payload.win,
@@ -57,16 +57,20 @@ def get_statistic(db: Session, stat_id: str) -> Optional[models.Statistics]:
 
 def _apply_filters(
     query,
-    player: Optional[str],
-    device: Optional[int],
+    player_id: Optional[str],
+    device: Optional[str],
     game: Optional[str],
     start: Optional[datetime],
     end: Optional[datetime],
 ):
-    if player is not None:
-        query = query.filter(models.Statistics.player == player)
+    if player_id is not None:
+        query = query.filter(models.Statistics.player_id == player_id)
     if device is not None:
-        query = query.filter(models.Statistics.device == device)
+        # Statistics no longer stores its own device column -- device now
+        # lives on the related player, so filtering by it means a join.
+        query = query.join(models.Player, models.Statistics.player_id == models.Player.id).filter(
+            models.Player.device == device
+        )
     if game is not None:
         query = query.filter(models.Statistics.game == game)
     if start is not None:
@@ -78,8 +82,8 @@ def _apply_filters(
 
 def list_statistics(
     db: Session,
-    player: Optional[str] = None,
-    device: Optional[int] = None,
+    player_id: Optional[str] = None,
+    device: Optional[str] = None,
     game: Optional[str] = None,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
@@ -87,7 +91,7 @@ def list_statistics(
     offset: int = 0,
 ) -> tuple[int, list[models.Statistics]]:
     base = select(models.Statistics)
-    base = _apply_filters(base, player, device, game, start, end)
+    base = _apply_filters(base, player_id, device, game, start, end)
 
     total = db.scalar(select(func.count()).select_from(base.subquery()))
 
@@ -103,8 +107,8 @@ def list_statistics(
 
 def summarize(
     db: Session,
-    player: Optional[str] = None,
-    device: Optional[int] = None,
+    player_id: Optional[str] = None,
+    device: Optional[str] = None,
     game: Optional[str] = None,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
@@ -114,11 +118,18 @@ def summarize(
         func.coalesce(func.sum(models.Statistics.bet), 0.0),
         func.coalesce(func.sum(models.Statistics.win), 0.0),
     )
-    query = _apply_filters(query, player, device, game, start, end)
+    query = _apply_filters(query, player_id, device, game, start, end)
 
     rounds_played, total_bet, total_win = db.execute(query).one()
+
+    player_name = None
+    if player_id is not None:
+        player = db.get(models.Player, player_id)
+        player_name = player.name if player else None
+
     return {
-        "player": player,
+        "player_id": player_id,
+        "player_name": player_name,
         "game": game,
         "rounds_played": rounds_played,
         "total_bet": float(total_bet),
@@ -128,10 +139,14 @@ def summarize(
 
 
 def list_distinct_player_names(db: Session) -> list[str]:
-    """Distinct `player` strings that appear in the statistics ledger.
-    Note this is just names seen in past rounds, not the registered
-    `players` table -- use list_all_players() for that."""
-    rows = db.execute(select(models.Statistics.player).distinct()).scalars().all()
+    """Distinct player names that have at least one statistics row, resolved
+    via the player_id FK (not the players table itself -- use
+    list_all_players() for the full roster)."""
+    rows = db.execute(
+        select(models.Player.name)
+        .join(models.Statistics, models.Statistics.player_id == models.Player.id)
+        .distinct()
+    ).scalars().all()
     return sorted(rows)
 
 
@@ -141,14 +156,9 @@ def list_games(db: Session) -> list[str]:
 
 
 def _log_statistic(db: Session, player: models.Player, game: str, bet: float, win: float) -> None:
-    """Write a row to the game-agnostic statistics ledger. `statistics.device`
-    is an int (legacy schema); `players.device` is a free-form string, so we
-    fall back to 0 when it isn't numeric."""
-    try:
-        device_int = int(player.device)
-    except (TypeError, ValueError):
-        device_int = 0
-    db.add(models.Statistics(player=player.name, device=device_int, game=game, bet=bet, win=win))
+    """Write a row to the game-agnostic statistics ledger, linked to the
+    player via the real player_id FK."""
+    db.add(models.Statistics(player_id=player.id, game=game, bet=bet, win=win))
 
 
 # ---------------------------------------------------------------------------
@@ -200,10 +210,10 @@ def update_player(db: Session, player_id: str, payload: schemas.PlayerUpdate) ->
 # Roulette
 # ---------------------------------------------------------------------------
 def create_roulette_game(db: Session) -> models.RouletteGame:
-    """Starts a fresh roulette round and resets roulette_players, per spec
-    ('should be reset every game') -- this table only ever holds the current
-    round's bets, never history."""
-    db.query(models.RoulettePlayer).delete()
+    """Starts a fresh roulette round. Bets from previous rounds are left in
+    place in roulette_players -- each row is already scoped to its own game
+    via roulette_game_id, so "current round's bets" just means filtering by
+    the new game's id (see list_roulette_bets), not clearing the table."""
     game = models.RouletteGame(status="waiting_for_bets")
     db.add(game)
     db.commit()
@@ -321,9 +331,8 @@ def resolve_roulette_game(db: Session, game_id: str, number_draw: int) -> tuple[
 # Crash
 # ---------------------------------------------------------------------------
 def create_crash_game(db: Session) -> models.CrashGame:
-    """Starts a fresh crash round and resets crash_players (same reasoning
-    as roulette_players: this table holds only the current round)."""
-    db.query(models.CrashPlayer).delete()
+    """Starts a fresh crash round. Bets stay in crash_players across rounds,
+    scoped by crash_game_id -- same reasoning as create_roulette_game."""
     game = models.CrashGame(status="waiting_for_bets")
     db.add(game)
     db.commit()

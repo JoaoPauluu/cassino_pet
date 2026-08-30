@@ -72,7 +72,7 @@ def root():
 )
 def report_result(payload: schemas.StatisticCreate, db: Session = Depends(get_db)):
     row = crud.create_statistic(db, payload)
-    return row
+    return schemas.StatisticOut.from_row(row)
 
 
 # ---------------------------------------------------------------------------
@@ -85,8 +85,8 @@ def report_result(payload: schemas.StatisticCreate, db: Session = Depends(get_db
     summary="List statistics, optionally filtered by player/device/game/date range",
 )
 def get_statistics(
-    player: Optional[str] = Query(None, description="Filter by exact player name"),
-    device: Optional[int] = Query(None, description="Filter by device id"),
+    player_id: Optional[str] = Query(None, description="Filter by player id"),
+    device: Optional[str] = Query(None, description="Filter by the player's device (joins players table)"),
     game: Optional[str] = Query(None, description="Filter by game name"),
     start: Optional[datetime] = Query(None, description="Only rows at/after this ISO timestamp"),
     end: Optional[datetime] = Query(None, description="Only rows at/before this ISO timestamp"),
@@ -95,9 +95,9 @@ def get_statistics(
     db: Session = Depends(get_db),
 ):
     total, rows = crud.list_statistics(
-        db, player=player, device=device, game=game, start=start, end=end, limit=limit, offset=offset
+        db, player_id=player_id, device=device, game=game, start=start, end=end, limit=limit, offset=offset
     )
-    return {"total": total, "results": rows}
+    return {"total": total, "results": [schemas.StatisticOut.from_row(r) for r in rows]}
 
 
 @app.get(
@@ -107,21 +107,21 @@ def get_statistics(
     summary="Aggregate totals (rounds played, total bet/win, net) for a filter set",
 )
 def get_summary(
-    player: Optional[str] = Query(None),
-    device: Optional[int] = Query(None),
+    player_id: Optional[str] = Query(None),
+    device: Optional[str] = Query(None),
     game: Optional[str] = Query(None),
     start: Optional[datetime] = Query(None),
     end: Optional[datetime] = Query(None),
     db: Session = Depends(get_db),
 ):
-    return crud.summarize(db, player=player, device=device, game=game, start=start, end=end)
+    return crud.summarize(db, player_id=player_id, device=device, game=game, start=start, end=end)
 
 
 @app.get(
     "/statistics/player-names",
     response_model=list[str],
     tags=["statistics"],
-    summary="Distinct player names seen in the statistics ledger (historical, not the players table)",
+    summary="Distinct player names seen in the statistics ledger, resolved via the players table",
 )
 def get_statistics_player_names(db: Session = Depends(get_db)):
     return crud.list_distinct_player_names(db)
@@ -141,7 +141,7 @@ def get_statistic_by_id(stat_id: str, db: Session = Depends(get_db)):
     row = crud.get_statistic(db, stat_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Statistic not found")
-    return row
+    return schemas.StatisticOut.from_row(row)
 
 
 @app.get(
@@ -183,17 +183,17 @@ def list_players(
 
 
 @app.get(
-    "/players/by-name/{name}/summary",
+    "/players/{player_id}/summary",
     response_model=schemas.PlayerSummary,
     tags=["players"],
-    summary="Aggregate statistics totals for a player, by name (optionally scoped to a game)",
+    summary="Aggregate statistics totals for a player (optionally scoped to a game)",
 )
-def get_player_summary_by_name(
-    name: str,
+def get_player_summary(
+    player_id: str,
     game: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    return crud.summarize(db, player=name, game=game)
+    return crud.summarize(db, player_id=player_id, game=game)
 
 
 @app.get(
@@ -224,7 +224,7 @@ def update_player(player_id: str, payload: schemas.PlayerUpdate, db: Session = D
     response_model=schemas.RouletteGameOut,
     status_code=status.HTTP_201_CREATED,
     tags=["roulette"],
-    summary="Start a new roulette round (called by roulette.py). Resets roulette_players.",
+    summary="Start a new roulette round (called by roulette.py). Bets from prior rounds are kept, scoped by game id.",
 )
 def start_roulette_game(db: Session = Depends(get_db)):
     return crud.create_roulette_game(db)
@@ -320,7 +320,7 @@ def draw_roulette_game(game_id: str, payload: schemas.RouletteDrawRequest, db: S
     response_model=schemas.CrashGameOut,
     status_code=status.HTTP_201_CREATED,
     tags=["crash"],
-    summary="Start a new crash round (called by crash.py). Resets crash_players.",
+    summary="Start a new crash round (called by crash.py). Bets from prior rounds are kept, scoped by game id.",
 )
 def start_crash_game(db: Session = Depends(get_db)):
     return crud.create_crash_game(db)

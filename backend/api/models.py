@@ -1,12 +1,10 @@
 """
 SQLAlchemy ORM models.
 
-`Statistics` is the core, game-agnostic ledger of round results.
-Every game (roulette, crash, whatever comes next) writes exactly one
-row here per round played. Game-specific detail tables (e.g. a future
-`RouletteRound` or `CrashRound`) should each carry a
-`statistics_id` FK back to this table's `id`, so you can always join
-"what happened in detail" back to "what the player won/lost overall".
+`Statistics` is the core, game-agnostic ledger of round results. Every
+game (roulette, crash, whatever comes next) writes exactly one row here
+per resolved bet, linked to the player via `player_id` (a real FK to
+`players.id`, not a denormalized name/device pair).
 """
 import uuid
 from datetime import datetime, timezone
@@ -37,8 +35,7 @@ class Statistics(Base):
     __tablename__ = "statistics"
 
     id = Column(String(36), primary_key=True, default=_uuid_str)
-    player = Column(String, nullable=False, index=True)
-    device = Column(Integer, nullable=False, index=True)
+    player_id = Column(String(36), ForeignKey("players.id"), nullable=False, index=True)
     game = Column(String, nullable=False, index=True)
     bet = Column(Float, nullable=False)
     win = Column(Float, nullable=False)
@@ -49,12 +46,10 @@ class Statistics(Base):
     # server-side so game clients don't need to send it themselves.
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
 
-    # Placeholder for future game-specific tables to hook into, e.g.:
-    #   roulette_round = relationship("RouletteRound", uselist=False, back_populates="statistic")
-    #   crash_round = relationship("CrashRound", uselist=False, back_populates="statistic")
+    player = relationship("Player")
 
     __table_args__ = (
-        Index("ix_statistics_player_game", "player", "game"),
+        Index("ix_statistics_player_game", "player_id", "game"),
     )
 
     @property
@@ -95,9 +90,10 @@ class RouletteGame(Base):
 
 
 class RoulettePlayer(Base):
-    """A single player's bet in the CURRENT roulette round. This table is
-    wiped whenever a new roulette game is created -- it is not a historical
-    ledger (that's what `statistics` is for)."""
+    """A player's bet in one roulette round. Rows persist across rounds --
+    "the current round's bets" means filtering by roulette_game_id, not a
+    table that gets cleared. Full player win/loss history lives here too;
+    `statistics` is the game-agnostic rollup of the same events."""
 
     __tablename__ = "roulette_players"
 
@@ -127,8 +123,8 @@ class CrashGame(Base):
 
 
 class CrashPlayer(Base):
-    """A single player's bet in the CURRENT crash round. Reset whenever a new
-    crash game is created, same reasoning as RoulettePlayer above."""
+    """A player's bet in one crash round. Same reasoning as RoulettePlayer
+    above -- rows persist across rounds, scoped by crash_game_id."""
 
     __tablename__ = "crash_players"
 

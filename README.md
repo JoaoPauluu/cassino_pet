@@ -26,17 +26,31 @@ Interactive docs (Swagger UI): `http://localhost:8000/docs`
 
 ## Tables
 
-### `statistics` (unchanged from before)
+### `statistics`
 The game-agnostic historical ledger — one row per resolved bet, across every game. `roulette.py`/`crash.py`
-don't need to touch this directly anymore: the `/draw`, `/crash`, and `/cashout` endpoints write to it
+don't need to touch this directly: the `/draw`, `/crash`, and `/cashout` endpoints write to it
 automatically whenever a bet is settled.
+
+| column | type | notes |
+|---|---|---|
+| `id` | str (UUID) | primary key |
+| `player_id` | str (UUID) | FK → `players.id` — replaces the old free-text `player`/`device` pair |
+| `game` | str | indexed, e.g. `"roulette"`, `"crash"` |
+| `bet` | float | amount wagered |
+| `win` | float | amount returned to the player (`0` on a loss) |
+| `created_at` | datetime | |
+
+API responses (`StatisticOut`) still expose `player_name` and `device` as read-only convenience fields —
+they're just resolved from the `players` join now instead of being stored redundantly, so they can never
+drift out of sync with the player record. This also fully resolves the earlier `int`/`str` device type
+mismatch, since `statistics` no longer stores its own copy of `device` at all.
 
 ### `players`
 | column | type | notes |
 |---|---|---|
 | `id` | str (UUID) | primary key |
 | `name` | str | indexed |
-| `device` | str | indexed — the tablet/terminal identifier. **Note:** this is a string, unlike the legacy `statistics.device` int column; see caveat below. |
+| `device` | str | indexed — the tablet/terminal identifier |
 | `starting_currency` | float | |
 | `current_currency` | float | live wallet balance, updated automatically as bets are placed/settled |
 | `created_at` | datetime | added for audit purposes |
@@ -50,8 +64,10 @@ automatically whenever a bet is settled.
 | `status` | str | `"waiting_for_bets"` \| `"running"` \| `"ended"` |
 
 ### `roulette_players`
-Reset (fully cleared) every time a new roulette game is created — it only ever holds bets for the
-**current** round, per your spec. Historical results live in `statistics` instead.
+One row per bet, scoped to a specific round via `roulette_game_id` — **not reset** when a new game starts.
+Bets from every past round stay in this table; "this round's bets" just means filtering by the current
+`roulette_game_id` (which `GET /roulette/games/{id}/players` does for you). So this table doubles as a
+full roulette history, not just current-round state.
 | column | type |
 |---|---|
 | `id` | str (UUID), row id |
@@ -64,6 +80,7 @@ Reset (fully cleared) every time a new roulette game is created — it only ever
 Same shape as `roulette_games`, with `crash_multiplier` (float, nullable) instead of `number_draw`.
 
 ### `crash_players`
+Same reasoning as `roulette_players` — persists across rounds, scoped by `crash_game_id`.
 | column | type |
 |---|---|
 | `id` | str (UUID), row id |
@@ -73,28 +90,25 @@ Same shape as `roulette_games`, with `crash_multiplier` (float, nullable) instea
 | `left` | bool — has this player cashed out? |
 | `multiplier` | float, nullable — multiplier at cashout |
 
-**Assumption:** you only said `roulette_players` should reset every game, but I reset `crash_players`
-the same way each time `POST /crash/games` is called, since it's the same kind of "current round only"
-table. Say the word if you'd rather it persist.
-
 ## Typical flow
 
-### Setup (once)
+### Setup (once per player)
 ```bash
 POST /players   {"name": "joao", "device": "tablet-1", "starting_currency": 100}
+# -> returns {"id": "<player_id>", ...}; use that id everywhere below
 ```
 
 ### Roulette (driven by roulette.py)
-1. `POST /roulette/games` — starts a round, wipes `roulette_players`, status `waiting_for_bets`.
-2. Frontend calls `POST /roulette/games/{id}/join` per player — `{"player": "<id>", "number_bet": 7, "money_bet": 10}`. Validates game is still accepting bets, player has funds, and hasn't already bet this round; deducts the stake immediately.
+1. `POST /roulette/games` — starts a round, status `waiting_for_bets`. Bets from previous rounds are untouched; each round's bets live under their own `roulette_game_id`.
+2. Frontend calls `POST /roulette/games/{id}/join` per player — `{"player": "<player_id>", "number_bet": 7, "money_bet": 10}`. Validates the game is still accepting bets, the player has funds, and they haven't already bet this round; deducts the stake immediately.
 3. `roulette.py` calls `PATCH /roulette/games/{id}/status` `{"status": "running"}` to close betting.
 4. `roulette.py` draws the number itself, then calls `POST /roulette/games/{id}/draw` `{"number_draw": 7}`. This settles every bet in one transaction: straight-up hits pay 36x (35:1 + stake back — tweak `ROULETTE_STRAIGHT_PAYOUT_MULTIPLIER` in `models.py` if you want a different payout table later, e.g. red/black or dozens), credits winners' `current_currency`, logs a `statistics` row per player, and sets `status="ended"`.
 
 ### Crash (driven by crash.py + frontend)
-1. `POST /crash/games` — starts a round, wipes `crash_players`.
-2. Frontend calls `POST /crash/games/{id}/join` per player — `{"player": "<id>", "money_bet": 20}`. Same validation/deduction as roulette.
+1. `POST /crash/games` — starts a round. Same "old bets stay, new round gets a fresh id" behavior as roulette.
+2. Frontend calls `POST /crash/games/{id}/join` per player — `{"player": "<player_id>", "money_bet": 20}`. Same validation/deduction as roulette.
 3. `crash.py` calls `PATCH /crash/games/{id}/status` `{"status": "running"}` and starts climbing the multiplier.
-4. Whenever a player hits "cash out", frontend calls `POST /crash/games/{id}/cashout` `{"player": "<id>", "multiplier": 2.5}`. Credits `money_bet * multiplier` immediately and logs the win to `statistics`.
+4. Whenever a player hits "cash out", frontend calls `POST /crash/games/{id}/cashout` `{"player": "<player_id>", "multiplier": 2.5}`. Credits `money_bet * multiplier` immediately and logs the win to `statistics`.
 5. When `crash.py` determines the round has crashed, it calls `POST /crash/games/{id}/crash` `{"crash_multiplier": 3.1}`. Anyone who hadn't cashed out yet loses their stake (already deducted at bet time, so this just logs a `statistics` row with `win=0`), and the game is marked `ended`.
 
 ## Full endpoint list
@@ -104,32 +118,35 @@ POST /players   {"name": "joao", "device": "tablet-1", "starting_currency": 100}
 - `GET /players?device=&name=` — list
 - `GET /players/{id}` — fetch one
 - `PATCH /players/{id}` — update `device` and/or `current_currency`
-- `GET /players/by-name/{name}/summary?game=` — aggregate stats totals (renamed from the old `/players/{player}/summary`)
+- `GET /players/{id}/summary?game=` — aggregate stats totals for that player
 
 **Roulette**
-- `POST /roulette/games` — start a round (resets `roulette_players`)
+- `POST /roulette/games` — start a round (old rounds' bets are untouched, just scoped to their own game id)
 - `GET /roulette/games?status=` — list
 - `GET /roulette/games/current?status=` — most recent by `game_start_time`
 - `GET /roulette/games/{id}` — fetch one
 - `PATCH /roulette/games/{id}/status` — `{"status": "running"}` etc.
 - `POST /roulette/games/{id}/join` — a player bets
-- `GET /roulette/games/{id}/players` — list bets in the round
+- `GET /roulette/games/{id}/players` — list bets in that round
 - `POST /roulette/games/{id}/draw` — report the drawn number, settle all bets, end the game
 
 **Crash**
-- `POST /crash/games` — start a round (resets `crash_players`)
+- `POST /crash/games` — start a round (same "old rounds untouched" behavior as roulette)
 - `GET /crash/games?status=` — list
 - `GET /crash/games/current?status=` — most recent by `game_start_time`
 - `GET /crash/games/{id}` — fetch one
 - `PATCH /crash/games/{id}/status` — `{"status": "running"}` etc.
 - `POST /crash/games/{id}/join` — a player bets
-- `GET /crash/games/{id}/players` — list bets in the round
+- `GET /crash/games/{id}/players` — list bets in that round
 - `POST /crash/games/{id}/cashout` — a player leaves at the current multiplier
 - `POST /crash/games/{id}/crash` — report the crash point, settle remaining bets, end the game
 
-**Statistics** (unchanged, plus one rename)
-- `POST /statistics`, `GET /statistics`, `GET /statistics/{id}`, `GET /statistics/summary`
-- `GET /statistics/player-names` (renamed from the old `GET /players`, which now returns full player objects instead of bare names)
+**Statistics**
+- `POST /statistics` `{"player": "<player_id>", "game": "...", "bet": ..., "win": ...}`
+- `GET /statistics?player_id=&device=&game=&start=&end=` — `device` filters via a join to `players`
+- `GET /statistics/{id}`
+- `GET /statistics/summary?player_id=&device=&game=&start=&end=`
+- `GET /statistics/player-names` — distinct player names with at least one statistics row (via the `players` join)
 - `GET /games`
 
 ## Error handling
@@ -141,13 +158,6 @@ Game-logic problems come back as clean HTTP errors instead of 500s:
 | Betting on a game that isn't `waiting_for_bets`, cashing out of a game that isn't `running`, drawing/crashing an already-`ended` game, double cashout | `409` |
 | Player already has a bet in this round | `409` |
 | Player's `current_currency` is less than `money_bet` | `402` |
-
-## Known caveat: `device` type mismatch
-
-The original `statistics.device` column is an `int` (a legacy device id). The new `players.device` is a
-`str` per your spec (tablet identifier). When a bet resolves, the auto-generated `statistics` row tries
-`int(player.device)` and falls back to `0` if that fails. If you want these unified, easiest fix is
-changing `statistics.device` to a string column — say the word and I'll add a migration.
 
 ## Notes on the "trusted devices" setup
 
