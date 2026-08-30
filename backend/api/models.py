@@ -11,10 +11,18 @@ row here per round played. Game-specific detail tables (e.g. a future
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, Index
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
-from backend.api.database import Base
+from database import Base
+
+# Status values shared by roulette_games and crash_games.
+GAME_STATUSES = ("waiting_for_bets", "running", "ended")
+
+# Straight-up (single number) roulette payout: total returned to the player
+# when their number hits, i.e. 35:1 profit + the original stake back.
+# Change this constant if you want a different house edge.
+ROULETTE_STRAIGHT_PAYOUT_MULTIPLIER = 36
 
 
 def _uuid_str() -> str:
@@ -53,3 +61,87 @@ class Statistics(Base):
     def net(self) -> float:
         """Convenience: positive = player profited, negative = house won."""
         return self.win - self.bet
+
+
+class Player(Base):
+    """A registered player/wallet. `device` here identifies the terminal/tablet
+    they're currently playing from (string, e.g. a hostname or asset tag) --
+    separate from `statistics.device`, which is the historical integer id."""
+
+    __tablename__ = "players"
+
+    id = Column(String(36), primary_key=True, default=_uuid_str)
+    name = Column(String, nullable=False, index=True)
+    device = Column(String, nullable=False, index=True)
+    starting_currency = Column(Float, nullable=False)
+    current_currency = Column(Float, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_players_name_device", "name", "device"),
+    )
+
+
+class RouletteGame(Base):
+    __tablename__ = "roulette_games"
+
+    id = Column(String(36), primary_key=True, default=_uuid_str)  # unique_identifier
+    number_draw = Column(Integer, nullable=True)  # set once the wheel is resolved
+    game_start_time = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    status = Column(String, nullable=False, default="waiting_for_bets", index=True)
+
+    bets = relationship("RoulettePlayer", back_populates="game", cascade="all, delete-orphan")
+
+
+class RoulettePlayer(Base):
+    """A single player's bet in the CURRENT roulette round. This table is
+    wiped whenever a new roulette game is created -- it is not a historical
+    ledger (that's what `statistics` is for)."""
+
+    __tablename__ = "roulette_players"
+
+    id = Column(String(36), primary_key=True, default=_uuid_str)
+    roulette_game_id = Column(String(36), ForeignKey("roulette_games.id"), nullable=False, index=True)
+    player_id = Column(String(36), ForeignKey("players.id"), nullable=False, index=True)
+    number_bet = Column(Integer, nullable=False)
+    money_bet = Column(Float, nullable=False)
+
+    game = relationship("RouletteGame", back_populates="bets")
+    player = relationship("Player")
+
+    __table_args__ = (
+        Index("ix_roulette_players_game_player", "roulette_game_id", "player_id"),
+    )
+
+
+class CrashGame(Base):
+    __tablename__ = "crash_games"
+
+    id = Column(String(36), primary_key=True, default=_uuid_str)  # unique_identifier
+    crash_multiplier = Column(Float, nullable=True)  # set once the round crashes
+    game_start_time = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    status = Column(String, nullable=False, default="waiting_for_bets", index=True)
+
+    bets = relationship("CrashPlayer", back_populates="game", cascade="all, delete-orphan")
+
+
+class CrashPlayer(Base):
+    """A single player's bet in the CURRENT crash round. Reset whenever a new
+    crash game is created, same reasoning as RoulettePlayer above."""
+
+    __tablename__ = "crash_players"
+
+    id = Column(String(36), primary_key=True, default=_uuid_str)
+    crash_game_id = Column(String(36), ForeignKey("crash_games.id"), nullable=False, index=True)
+    player_id = Column(String(36), ForeignKey("players.id"), nullable=False, index=True)
+    money_bet = Column(Float, nullable=False)
+    left = Column(Boolean, nullable=False, default=False)  # has the player cashed out?
+    multiplier = Column(Float, nullable=True)  # multiplier at cashout, if left=True
+
+    game = relationship("CrashGame", back_populates="bets")
+    player = relationship("Player")
+
+    __table_args__ = (
+        Index("ix_crash_players_game_player", "crash_game_id", "player_id"),
+    )

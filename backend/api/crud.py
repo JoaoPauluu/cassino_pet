@@ -1,5 +1,10 @@
 """
 Database access functions, kept separate from the route handlers.
+
+This module deliberately doesn't import FastAPI: game-logic errors (not
+found, wrong game state, insufficient balance, ...) are raised as the
+plain exceptions below, and main.py is responsible for turning them into
+the right HTTP status codes.
 """
 from datetime import datetime
 from typing import Optional
@@ -7,8 +12,29 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import backend.api.models as models
-import backend.api.schemas as schemas
+import models
+import schemas
+
+
+class CasinoError(Exception):
+    """Base class for domain errors raised from crud.py."""
+
+
+class NotFoundError(CasinoError):
+    pass
+
+
+class InvalidStateError(CasinoError):
+    """Raised when an action is attempted against a game/bet in the wrong state,
+    e.g. betting on a game that's already running, or cashing out twice."""
+
+
+class InsufficientFundsError(CasinoError):
+    pass
+
+
+class ConflictError(CasinoError):
+    """Raised for things like a player betting twice in the same round."""
 
 
 def create_statistic(db: Session, payload: schemas.StatisticCreate) -> models.Statistics:
@@ -101,7 +127,10 @@ def summarize(
     }
 
 
-def list_players(db: Session) -> list[str]:
+def list_distinct_player_names(db: Session) -> list[str]:
+    """Distinct `player` strings that appear in the statistics ledger.
+    Note this is just names seen in past rounds, not the registered
+    `players` table -- use list_all_players() for that."""
     rows = db.execute(select(models.Statistics.player).distinct()).scalars().all()
     return sorted(rows)
 
@@ -109,3 +138,328 @@ def list_players(db: Session) -> list[str]:
 def list_games(db: Session) -> list[str]:
     rows = db.execute(select(models.Statistics.game).distinct()).scalars().all()
     return sorted(rows)
+
+
+def _log_statistic(db: Session, player: models.Player, game: str, bet: float, win: float) -> None:
+    """Write a row to the game-agnostic statistics ledger. `statistics.device`
+    is an int (legacy schema); `players.device` is a free-form string, so we
+    fall back to 0 when it isn't numeric."""
+    try:
+        device_int = int(player.device)
+    except (TypeError, ValueError):
+        device_int = 0
+    db.add(models.Statistics(player=player.name, device=device_int, game=game, bet=bet, win=win))
+
+
+# ---------------------------------------------------------------------------
+# Players (wallets)
+# ---------------------------------------------------------------------------
+def create_player(db: Session, payload: schemas.PlayerCreate) -> models.Player:
+    row = models.Player(
+        name=payload.name,
+        device=payload.device,
+        starting_currency=payload.starting_currency,
+        current_currency=(
+            payload.current_currency if payload.current_currency is not None else payload.starting_currency
+        ),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def get_player(db: Session, player_id: str) -> models.Player:
+    row = db.get(models.Player, player_id)
+    if row is None:
+        raise NotFoundError(f"Player {player_id} not found")
+    return row
+
+
+def list_all_players(db: Session, device: Optional[str] = None, name: Optional[str] = None) -> list[models.Player]:
+    query = select(models.Player)
+    if device is not None:
+        query = query.filter(models.Player.device == device)
+    if name is not None:
+        query = query.filter(models.Player.name == name)
+    return db.execute(query.order_by(models.Player.created_at.desc())).scalars().all()
+
+
+def update_player(db: Session, player_id: str, payload: schemas.PlayerUpdate) -> models.Player:
+    row = get_player(db, player_id)
+    if payload.device is not None:
+        row.device = payload.device
+    if payload.current_currency is not None:
+        row.current_currency = payload.current_currency
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Roulette
+# ---------------------------------------------------------------------------
+def create_roulette_game(db: Session) -> models.RouletteGame:
+    """Starts a fresh roulette round and resets roulette_players, per spec
+    ('should be reset every game') -- this table only ever holds the current
+    round's bets, never history."""
+    db.query(models.RoulettePlayer).delete()
+    game = models.RouletteGame(status="waiting_for_bets")
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+    return game
+
+
+def get_roulette_game(db: Session, game_id: str) -> models.RouletteGame:
+    row = db.get(models.RouletteGame, game_id)
+    if row is None:
+        raise NotFoundError(f"Roulette game {game_id} not found")
+    return row
+
+
+def list_roulette_games(
+    db: Session, status: Optional[str] = None, limit: int = 50, offset: int = 0
+) -> list[models.RouletteGame]:
+    query = select(models.RouletteGame)
+    if status is not None:
+        query = query.filter(models.RouletteGame.status == status)
+    query = query.order_by(models.RouletteGame.game_start_time.desc()).limit(limit).offset(offset)
+    return db.execute(query).scalars().all()
+
+
+def get_current_roulette_game(db: Session, status: Optional[str] = None) -> models.RouletteGame:
+    query = select(models.RouletteGame)
+    if status is not None:
+        query = query.filter(models.RouletteGame.status == status)
+    query = query.order_by(models.RouletteGame.game_start_time.desc()).limit(1)
+    row = db.execute(query).scalars().first()
+    if row is None:
+        raise NotFoundError("No roulette game found")
+    return row
+
+
+def update_roulette_status(db: Session, game_id: str, status: str) -> models.RouletteGame:
+    game = get_roulette_game(db, game_id)
+    game.status = status
+    db.commit()
+    db.refresh(game)
+    return game
+
+
+def place_roulette_bet(db: Session, game_id: str, payload: schemas.RouletteBetCreate) -> models.RoulettePlayer:
+    game = get_roulette_game(db, game_id)
+    if game.status != "waiting_for_bets":
+        raise InvalidStateError(f"Roulette game {game_id} is not accepting bets (status={game.status})")
+
+    player = get_player(db, payload.player)
+
+    existing = db.execute(
+        select(models.RoulettePlayer).filter_by(roulette_game_id=game_id, player_id=player.id)
+    ).scalars().first()
+    if existing is not None:
+        raise ConflictError("Player has already placed a bet in this roulette game")
+
+    if player.current_currency < payload.money_bet:
+        raise InsufficientFundsError(f"Player {player.name} has insufficient balance")
+
+    player.current_currency -= payload.money_bet
+    bet = models.RoulettePlayer(
+        roulette_game_id=game_id,
+        player_id=player.id,
+        number_bet=payload.number_bet,
+        money_bet=payload.money_bet,
+    )
+    db.add(bet)
+    db.commit()
+    db.refresh(bet)
+    return bet
+
+
+def list_roulette_bets(db: Session, game_id: str) -> list[models.RoulettePlayer]:
+    get_roulette_game(db, game_id)  # 404 if missing
+    return db.execute(
+        select(models.RoulettePlayer).filter_by(roulette_game_id=game_id)
+    ).scalars().all()
+
+
+def resolve_roulette_game(db: Session, game_id: str, number_draw: int) -> tuple[models.RouletteGame, list[dict]]:
+    """Called by roulette.py once it has drawn the winning number. Settles
+    every bet, credits winners, logs each outcome to `statistics`, and
+    closes the game out."""
+    game = get_roulette_game(db, game_id)
+    if game.status == "ended":
+        raise InvalidStateError(f"Roulette game {game_id} has already ended")
+
+    bets = list_roulette_bets(db, game_id)
+    results = []
+    for bet in bets:
+        player = get_player(db, bet.player_id)
+        won = bet.number_bet == number_draw
+        win = bet.money_bet * models.ROULETTE_STRAIGHT_PAYOUT_MULTIPLIER if won else 0.0
+        if win:
+            player.current_currency += win
+        _log_statistic(db, player, game="roulette", bet=bet.money_bet, win=win)
+        results.append(
+            {
+                "player_id": player.id,
+                "player_name": player.name,
+                "money_bet": bet.money_bet,
+                "win": win,
+                "net": win - bet.money_bet,
+            }
+        )
+
+    game.number_draw = number_draw
+    game.status = "ended"
+    db.commit()
+    db.refresh(game)
+    return game, results
+
+
+# ---------------------------------------------------------------------------
+# Crash
+# ---------------------------------------------------------------------------
+def create_crash_game(db: Session) -> models.CrashGame:
+    """Starts a fresh crash round and resets crash_players (same reasoning
+    as roulette_players: this table holds only the current round)."""
+    db.query(models.CrashPlayer).delete()
+    game = models.CrashGame(status="waiting_for_bets")
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+    return game
+
+
+def get_crash_game(db: Session, game_id: str) -> models.CrashGame:
+    row = db.get(models.CrashGame, game_id)
+    if row is None:
+        raise NotFoundError(f"Crash game {game_id} not found")
+    return row
+
+
+def list_crash_games(
+    db: Session, status: Optional[str] = None, limit: int = 50, offset: int = 0
+) -> list[models.CrashGame]:
+    query = select(models.CrashGame)
+    if status is not None:
+        query = query.filter(models.CrashGame.status == status)
+    query = query.order_by(models.CrashGame.game_start_time.desc()).limit(limit).offset(offset)
+    return db.execute(query).scalars().all()
+
+
+def get_current_crash_game(db: Session, status: Optional[str] = None) -> models.CrashGame:
+    query = select(models.CrashGame)
+    if status is not None:
+        query = query.filter(models.CrashGame.status == status)
+    query = query.order_by(models.CrashGame.game_start_time.desc()).limit(1)
+    row = db.execute(query).scalars().first()
+    if row is None:
+        raise NotFoundError("No crash game found")
+    return row
+
+
+def update_crash_status(db: Session, game_id: str, status: str) -> models.CrashGame:
+    game = get_crash_game(db, game_id)
+    game.status = status
+    db.commit()
+    db.refresh(game)
+    return game
+
+
+def place_crash_bet(db: Session, game_id: str, payload: schemas.CrashBetCreate) -> models.CrashPlayer:
+    game = get_crash_game(db, game_id)
+    if game.status != "waiting_for_bets":
+        raise InvalidStateError(f"Crash game {game_id} is not accepting bets (status={game.status})")
+
+    player = get_player(db, payload.player)
+
+    existing = db.execute(
+        select(models.CrashPlayer).filter_by(crash_game_id=game_id, player_id=player.id)
+    ).scalars().first()
+    if existing is not None:
+        raise ConflictError("Player has already placed a bet in this crash game")
+
+    if player.current_currency < payload.money_bet:
+        raise InsufficientFundsError(f"Player {player.name} has insufficient balance")
+
+    player.current_currency -= payload.money_bet
+    bet = models.CrashPlayer(
+        crash_game_id=game_id,
+        player_id=player.id,
+        money_bet=payload.money_bet,
+        left=False,
+        multiplier=None,
+    )
+    db.add(bet)
+    db.commit()
+    db.refresh(bet)
+    return bet
+
+
+def list_crash_bets(db: Session, game_id: str) -> list[models.CrashPlayer]:
+    get_crash_game(db, game_id)  # 404 if missing
+    return db.execute(select(models.CrashPlayer).filter_by(crash_game_id=game_id)).scalars().all()
+
+
+def cashout_crash_bet(db: Session, game_id: str, payload: schemas.CrashCashoutRequest) -> models.CrashPlayer:
+    """Called when the frontend reports a player hit 'cash out' at a given
+    multiplier while the round is still running."""
+    game = get_crash_game(db, game_id)
+    if game.status != "running":
+        raise InvalidStateError(f"Crash game {game_id} is not running (status={game.status})")
+
+    bet = db.execute(
+        select(models.CrashPlayer).filter_by(crash_game_id=game_id, player_id=payload.player)
+    ).scalars().first()
+    if bet is None:
+        raise NotFoundError("Player has no bet in this crash game")
+    if bet.left:
+        raise InvalidStateError("Player has already cashed out of this crash game")
+
+    player = get_player(db, payload.player)
+    win = bet.money_bet * payload.multiplier
+
+    bet.left = True
+    bet.multiplier = payload.multiplier
+    player.current_currency += win
+    _log_statistic(db, player, game="crash", bet=bet.money_bet, win=win)
+
+    db.commit()
+    db.refresh(bet)
+    return bet
+
+
+def resolve_crash_game(db: Session, game_id: str, crash_multiplier: float) -> tuple[models.CrashGame, list[dict]]:
+    """Called by crash.py once it knows the round's crash point. Anyone who
+    hadn't cashed out yet loses their stake (already deducted at bet time,
+    so no balance change needed) -- we just log it and close the game."""
+    game = get_crash_game(db, game_id)
+    if game.status == "ended":
+        raise InvalidStateError(f"Crash game {game_id} has already ended")
+
+    bets = list_crash_bets(db, game_id)
+    results = []
+    for bet in bets:
+        player = get_player(db, bet.player_id)
+        if bet.left:
+            # Already resolved + credited at cashout time.
+            win = bet.money_bet * (bet.multiplier or 0.0)
+        else:
+            win = 0.0
+            _log_statistic(db, player, game="crash", bet=bet.money_bet, win=win)
+        results.append(
+            {
+                "player_id": player.id,
+                "player_name": player.name,
+                "money_bet": bet.money_bet,
+                "win": win,
+                "net": win - bet.money_bet,
+            }
+        )
+
+    game.crash_multiplier = crash_multiplier
+    game.status = "ended"
+    db.commit()
+    db.refresh(game)
+    return game, results
