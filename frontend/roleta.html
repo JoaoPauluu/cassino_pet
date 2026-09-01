@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double - PET Cassino</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css_roleta.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo-area">
+            <img src="logo-pet.png" alt="Logo" class="logo" onerror="this.src='https://via.placeholder.com/150x50/1A1B20/FFFFFF?text=PET+CASSINO'">
+            <nav class="menu">
+                <a href="index.html">📺 Painel TV</a>
+                <a href="roleta.html" class="active">🎰 Blaze Double</a>
+            </nav>
+        </div>
+        <div class="user-area">
+            <button class="btn-config" onclick="configurarSistema()" title="Configurar Tablet">⚙️</button>
+            <div class="user-info">
+                <span id="nome-jogador">Conectando...</span>
+                <span id="saldo-jogador" class="saldo">R$ 0,00</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="game-container">
+        <section class="roleta-section">
+            <div class="status-bar" id="game-status">Sincronizando com o Servidor...</div>
+            
+            <div class="roleta-display">
+                <div class="selector-arrow">▼</div>
+                <div class="roleta-track-container">
+                    <div class="roleta-track" id="roleta-track">
+                        <!-- JS carrega os quadrados aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="painel-apostas" id="painel-apostas">
+                <h3>Escolha a Cor e o Valor</h3>
+                
+                <!-- BOTOES DE CORES ESTILO BLAZE -->
+                <div class="color-selectors">
+                    <button class="btn-color bg-red" onclick="selecionarCor('red', this)">Vermelho (2x)</button>
+                    <button class="btn-color bg-white" onclick="selecionarCor('white', this)">Branco (14x)</button>
+                    <button class="btn-color bg-black" onclick="selecionarCor('black', this)">Preto (2x)</button>
+                </div>
+
+                <div class="inputs-aposta">
+                    <div class="input-group">
+                        <label>Valor da Aposta (R$):</label>
+                        <input type="number" id="input-valor" min="1" step="1" placeholder="Ex: 50">
+                    </div>
+                    <button class="btn-apostar" id="btn-apostar" onclick="fazerAposta()">CONFIRMAR APOSTA</button>
+                </div>
+                <div id="mensagem-erro" class="erro-msg"></div>
+            </div>
+        </section>
+
+        <aside class="historico-section">
+            <h3>Últimos Giros</h3>
+            <ul id="lista-historico" class="lista-historico">
+                <!-- Preenchido pelo JS -->
+            </ul>
+        </aside>
+    </main>
+
+    <script src="js_roleta.js"></script>
+</body>
+</html>

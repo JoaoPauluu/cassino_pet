@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 import crud
@@ -30,6 +31,15 @@ app = FastAPI(
     version="1.1.0",
 )
 
+# <--- 2. ADICIONE ESTE BLOCO INTEIRO AQUI --->
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite que qualquer site (até o C:/) acesse a API
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite GET, POST, etc
+    allow_headers=["*"],
+)
+# <----------------------------------------->
 
 # ---------------------------------------------------------------------------
 # Domain error -> HTTP status mapping. Keeps crud.py free of FastAPI details

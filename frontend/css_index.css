@@ -1,0 +1,22 @@
+:root { --bg-dark: #0f1923; --bg-card: #1f2933; --text-main: #ffffff; --text-muted: #8b97a3; --accent-red: #f23645; --accent-green: #089981; --border-color: #313d4a; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+.top-bar { background-color: var(--bg-card); padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); }
+.logo-area { display: flex; align-items: center; gap: 30px; }
+.logo { height: 40px; }
+.menu { display: flex; gap: 20px; }
+.menu a { color: var(--text-muted); text-decoration: none; font-weight: 700; transition: color 0.2s; }
+.menu a:hover, .menu a.active { color: var(--text-main); }
+.status-banco { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); }
+.dashboard { padding: 40px; flex: 1; display: flex; flex-direction: column; gap: 40px; }
+.banca-container { text-align: center; background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-dark) 100%); padding: 40px 20px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.banca-container h2 { font-size: 1.5rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+.banca-container h1 { font-size: 5.5rem; font-weight: 900; letter-spacing: -2px; color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
+.indicadores-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+.card { background-color: var(--bg-card); padding: 25px; border-radius: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px; transition: transform 0.2s; }
+.card:hover { transform: translateY(-5px); }
+.card-title { font-size: 1rem; font-weight: 700; color: var(--text-muted); }
+.card-value { font-size: 2.2rem; font-weight: 900; }
+.card-desc { font-size: 0.8rem; color: var(--text-muted); }
+.text-green { color: var(--accent-green); }
+.text-red { color: var(--accent-red); }

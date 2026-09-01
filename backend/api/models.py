@@ -17,11 +17,6 @@ from database import Base
 # Status values shared by roulette_games and crash_games.
 GAME_STATUSES = ("waiting_for_bets", "running", "ended")
 
-# Straight-up (single number) roulette payout: total returned to the player
-# when their number hits, i.e. 35:1 profit + the original stake back.
-# Change this constant if you want a different house edge.
-ROULETTE_STRAIGHT_PAYOUT_MULTIPLIER = 36
-
 
 def _uuid_str() -> str:
     return str(uuid.uuid4())
@@ -100,7 +95,7 @@ class RoulettePlayer(Base):
     id = Column(String(36), primary_key=True, default=_uuid_str)
     roulette_game_id = Column(String(36), ForeignKey("roulette_games.id"), nullable=False, index=True)
     player_id = Column(String(36), ForeignKey("players.id"), nullable=False, index=True)
-    number_bet = Column(Integer, nullable=False)
+    color_bet = Column(String, nullable=False)
     money_bet = Column(Float, nullable=False)
 
     game = relationship("RouletteGame", back_populates="bets")
