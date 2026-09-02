@@ -293,7 +293,7 @@ def list_roulette_bets(db: Session, game_id: str) -> list[models.RoulettePlayer]
     ).scalars().all()
 
 
-ROULETTE_RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+ROULETTE_RED_NUMBERS = {1, 2, 3, 4, 5, 6, 7}
 
 def resolve_roulette_game(db: Session, game_id: str, number_draw: int) -> tuple[models.RouletteGame, list[dict]]:
     """Called by roulette.py once it has drawn the winning number. Settles

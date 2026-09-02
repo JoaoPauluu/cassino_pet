@@ -31,7 +31,7 @@ def rodar_cassino():
             time.sleep(5)
 
             # 5. SORTEIA O NÚMERO E FINALIZA O JOGO
-            numero_sorteado = random.randint(0, 36)
+            numero_sorteado = random.randint(0, 14)
             print(f"🔴 RESULTADO: O número sorteado foi {numero_sorteado}!")
             requests.post(f"{BASE_URL}/roulette/games/{game_id}/draw", json={"number_draw": numero_sorteado})
 

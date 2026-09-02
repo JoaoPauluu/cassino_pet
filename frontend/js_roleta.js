@@ -4,7 +4,7 @@ let jogoAtualID = "";
 let statusUltimoJogo = "";
 let corSelecionada = ""; // Guarda qual cor o jogador clicou
 
-const numerosVermelhos = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+const numerosVermelhos = [1, 2, 3, 4, 5, 6, 7];
 
 function formataDinheiro(valor) { return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
@@ -121,7 +121,7 @@ function prepararRoletaEstatica() {
     track.classList.remove("spin-infinite");
     track.innerHTML = "";
     
-    for(let i = 0; i < 30; i++) track.appendChild(criarBox(Math.floor(Math.random() * 37)));
+    for(let i = 0; i < 30; i++) track.appendChild(criarBox(Math.floor(Math.random() * 15)));
 }
 
 function girarRoletaInfinito() {
@@ -131,7 +131,7 @@ function girarRoletaInfinito() {
     track.innerHTML = "";
     
     // Repete um padrão para o CSS conseguir fazer loop liso sem solavancos
-    for(let i = 0; i < 60; i++) track.appendChild(criarBox(Math.floor(Math.random() * 37)));
+    for(let i = 0; i < 60; i++) track.appendChild(criarBox(Math.floor(Math.random() * 15)));
 }
 
 function pararRoletaNoResultado(numeroSorteado) {
@@ -143,9 +143,9 @@ function pararRoletaNoResultado(numeroSorteado) {
 
     const TAMANHO_BLOCO = 80; 
 
-    for(let i = 0; i < 40; i++) track.appendChild(criarBox(Math.floor(Math.random() * 37)));
+    for(let i = 0; i < 40; i++) track.appendChild(criarBox(Math.floor(Math.random() * 15)));
     track.appendChild(criarBox(numeroSorteado));
-    for(let i = 0; i < 15; i++) track.appendChild(criarBox(Math.floor(Math.random() * 37)));
+    for(let i = 0; i < 15; i++) track.appendChild(criarBox(Math.floor(Math.random() * 15)));
 
     // TRUQUE PROFISSIONAL: 
     // Double requestAnimationFrame força o navegador a limpar o cache visual 
@@ -201,7 +201,6 @@ async function fazerAposta() {
         const response = await fetch(`${baseUrl}/roulette/games/${jogoAtualID}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // AVISO: Quando o João arrumar a API, mude 'number_bet' para 'color_bet' aqui se ele pedir
             body: JSON.stringify({ player: jogadorID, color_bet: corSelecionada, money_bet: valor })
         });
 
