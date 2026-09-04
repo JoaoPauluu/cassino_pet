@@ -37,7 +37,10 @@
     </header>
 
     {% block content %}{% endblock %}
+
+
     <!-- JOGADOR NOME É DEFINIDO AQUI PARA EVITAR ERRO DO JINJA DENTRO DE BASE.JS -->
+    
     <script>
         const jogadorNome = {{ session.get("username")|tojson }};
     </script>

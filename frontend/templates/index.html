@@ -11,7 +11,7 @@
 <main class="dashboard game-selection">
     <section class="welcome-container">
         <h1 class="title-large">Bem-vindo, {{ username }}!</h1>
-        <h2 class="user-balance">Seu saldo é de: <span class="text-green">R$ {{ saldo }}</span></h2>
+        <h2 class="user-balance">Seu saldo é de: <span class="text-green" id="saldo-bem-vindo">R$...</span></h2>
     </section>
 
     <section class="prompt-container">
@@ -51,5 +51,11 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/selecao.js') }}"></script>
+<!--- <script src="{{ url_for('static', filename='js/selecao.js') }}"></script> -->
+<script>
+    sessaoInciada.then(async () => {
+        saldo = await obterSaldo();
+        document.getElementById("saldo-bem-vindo").textContent = formataDinheiro(saldo);  
+    })();
+</script>
 {% endblock %}

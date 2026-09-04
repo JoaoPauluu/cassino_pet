@@ -16,7 +16,9 @@ function configurarSistema() {
     }
 }
 
-function formataDinheiro(valor) { return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function formataDinheiro(dinheiro) {
+    return dinheiro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); 
+    }
 
 function modificarSaldoNaTela(v) {
     document.getElementById("saldo-jogador").innerText = formataDinheiro(v);
@@ -43,6 +45,29 @@ async function criarJogador(nome, dispositivo) {
     } catch (error) {
         throw new Error("Erro ao criar jogador.");
     }
+}
+
+async function obterSaldo() {
+    if (!jogadorID) return;
+    try {
+        const response = await fetch(`${baseUrl}/players/${jogadorID}`);
+        const jogador = await response.json();
+        return jogador.current_currency;
+    } catch (error) {
+        mostrarErro("Erro ao obter saldo.", "#f23645");
+        return null;
+    }
+}
+
+async function atualizarSaldo() {
+    if (!jogadorID) return;
+    modificarSaldoNaTela(await obterSaldo());
+}
+
+function mostrarErro(msg, cor = "#f23645") {
+    const el = document.getElementById("mensagem-erro");
+    el.innerText = msg; el.style.color = cor;
+    setTimeout(() => { el.innerText = ""; }, 4000);
 }
 
 async function iniciarSessao() {
@@ -73,27 +98,10 @@ async function iniciarSessao() {
             modificarSaldoNaTela(novoJogador.current_currency);
         }
 
-
     } catch (error) { mostrarErro("Erro de Conexão com a API", "#f23645"); }
 }
 
 
-async function atualizarSaldo() {
-    if (!jogadorID) return;
-    try {
-        const response = await fetch(`${baseUrl}/players/${jogadorID}`);
-        const jogador = await response.json();
-        modificarSaldoNaTela(jogador.current_currency);
-    } catch (error) {
-        mostrarErro("Erro ao atualizar saldo.", "#f23645");
-    }
-}
-
-function mostrarErro(msg, cor = "#f23645") {
-    const el = document.getElementById("mensagem-erro");
-    el.innerText = msg; el.style.color = cor;
-    setTimeout(() => { el.innerText = ""; }, 4000);
-}
 
 
-iniciarSessao();
+const sessaoInciada = iniciarSessao();
