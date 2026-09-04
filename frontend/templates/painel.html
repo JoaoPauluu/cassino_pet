@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Global - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="dashboard">
+    <section class="banca-container">
+        <h2>Banca Global (Reserva)</h2>
+        <h1 id="saldo-banca">R$ 1.000.000,00</h1>
+    </section>
+
+    <section class="indicadores-grid">
+        <div class="card">
+            <span class="card-title">GGR (Lucro da Casa)</span>
+            <span class="card-value text-green" id="ggr">R$ 0,00</span>
+            <span class="card-desc">Receita bruta retida</span>
+        </div>
+        <div class="card">
+            <span class="card-title">Handle (Turnover)</span>
+            <span class="card-value" id="handle">R$ 0,00</span>
+            <span class="card-desc">Volume total apostado</span>
+        </div>
+        <div class="card">
+            <span class="card-title">Hold % (Margem)</span>
+            <span class="card-value" id="hold-pct">0.00%</span>
+            <span class="card-desc">GGR / Handle</span>
+        </div>
+        <div class="card">
+            <span class="card-title">Payout %</span>
+            <span class="card-value text-red" id="payout-pct">0.00%</span>
+            <span class="card-desc">Devolvido aos jogadores</span>
+        </div>
+        <div class="card">
+            <span class="card-title">Tíquete Médio</span>
+            <span class="card-value" id="tiquete">R$ 0,00</span>
+            <span class="card-desc">Valor médio por aposta</span>
+        </div>
+        <div class="card">
+            <span class="card-title">Total de Apostas</span>
+            <span class="card-value" id="total-apostas">0</span>
+            <span class="card-desc">Rodadas jogadas</span>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+{% endblock %}

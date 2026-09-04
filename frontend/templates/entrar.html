@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/roleta.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="auth-container">
+    <form class="auth-card" method="POST" action="{{ url_for('entrar') }}">
+        <h2>Antes de jogar...</h2>
+        <p>Digite seu nome para entrar na mesa. Ele vale so' para esta sessao.</p>
+
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="input-group">
+            <label for="nome">Nome do jogador</label>
+            <input type="text" id="nome" name="nome" placeholder="Ex: Maria" maxlength="40" autofocus required>
+        </div>
+
+        {% if erro %}
+        <p class="auth-erro">{{ erro }}</p>
+        {% endif %}
+
+        <button type="submit" class="btn-apostar">Entrar</button>
+    </form>
+</main>
+{% endblock %}
