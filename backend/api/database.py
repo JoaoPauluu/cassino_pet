@@ -8,7 +8,10 @@ DB from different threads within the same worker process.
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./casino.db"
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{BASE_DIR / 'casino.db'}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -38,5 +41,9 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

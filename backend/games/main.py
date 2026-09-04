@@ -6,7 +6,7 @@ import random_drawer
 
 
 async def roulette_routine(client: httpx.AsyncClient, URL: str):
-    logger = get_logger("Roullete")
+    logger = get_logger("Roulette")
 
     logger.info("Iniciando rotina de roleta...")
 
@@ -34,7 +34,7 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
             request = await client.post(f"{URL}/roulette/games/{current_game_id}/draw", json=request_body)
 
             request_body = {"status": "running"}
-            request = await client.post(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
+            request = await client.patch(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Resultado do jogo {current_game_id}: {draw}")
 
@@ -48,8 +48,8 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
 
         # Finaliza o jogo
         try:
-            request_body = {"status": "finished"}
-            request = await client.post(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
+            request_body = {"status": "ended"}
+            request = await client.patch(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Jogo {current_game_id} finalizado.")
 
@@ -86,11 +86,11 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
         # Sorteia o resultado do jogo
         try:
             draw = random_drawer.crashout()
-            request_body = {"number_draw": draw}
+            request_body = {"crash_multiplier": draw}
             request = await client.post(f"{URL}/crash/games/{current_game_id}/crash", json=request_body)
 
             request_body = {"status": "running"}
-            request = await client.post(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
+            request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Resultado do jogo {current_game_id}: {draw}")
 
@@ -104,8 +104,8 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
 
         # Finaliza o jogo
         try:
-            request_body = {"status": "finished"}
-            request = await client.post(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
+            request_body = {"status": "ended"}
+            request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Jogo {current_game_id} finalizado.")
 
