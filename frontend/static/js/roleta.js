@@ -1,77 +1,10 @@
-let baseUrl = "";
-let jogadorID = ""; 
 let jogoAtualID = "";
 let statusUltimoJogo = "";
 let corSelecionada = ""; // Guarda qual cor o jogador clicou
 
 const numerosVermelhos = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-function formataDinheiro(valor) { return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
-function configurarSistema() {
-    let ipSalvo = localStorage.getItem("pet_api_ip") || "localhost:8000"; 
-    let dispSalvo = localStorage.getItem("pet_dispositivo") || "Tablet 01"; 
-    
-    let novoIP = prompt("⚙️ 1/2 - IP da API (ex: 192.168.0.15:8080):", ipSalvo);
-    if (novoIP) {
-        localStorage.setItem("pet_api_ip", novoIP);
-        let novoDisp = prompt("⚙️ 2/2 - Nome deste Tablet:", dispSalvo);
-        if (novoDisp) {
-            localStorage.setItem("pet_dispositivo", novoDisp);
-            window.location.reload(); 
-        }
-    }
-}
-
-async function iniciarSessao() {
-    let ipAPI = localStorage.getItem("pet_api_ip");
-    let nomeDispositivo = localStorage.getItem("pet_dispositivo");
-    
-    if (!ipAPI || !nomeDispositivo) {
-        configurarSistema();
-        return;
-    }
-    baseUrl = `http://${ipAPI}`;
-
-    // O nome do jogador agora vem da sessao do Flask (definido na tela
-    // /entrar), em vez de perguntar aqui com prompt().
-    let jogadorNome = window.PET_USERNAME;
-    if (!jogadorNome || !jogadorNome.trim()) jogadorNome = "Visitante_" + Math.floor(Math.random() * 1000);
-    
-    document.getElementById("nome-jogador").innerText = `${jogadorNome} (${nomeDispositivo})`;
-
-    try {
-        let resBusca = await fetch(`${baseUrl}/players?name=${jogadorNome}&device=${nomeDispositivo}`);
-        let players = await resBusca.json();
-
-        if (players.length > 0) {
-            jogadorID = players[0].id;
-            atualizarSaldoNaTela(players[0].current_currency);
-        } else {
-            let resCreate = await fetch(`${baseUrl}/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: jogadorNome, device: nomeDispositivo, starting_currency: 10000 })
-            });
-            let novo = await resCreate.json();
-            jogadorID = novo.id;
-            atualizarSaldoNaTela(novo.current_currency);
-        }
-
-        carregarHistorico();
-        prepararRoletaEstatica();
-        setInterval(monitorarJogo, 1000);
-
-    } catch (error) { mostrarErro("Erro de Conexão com a API", "#f23645"); }
-}
-
-function atualizarSaldoNaTela(v) { document.getElementById("saldo-jogador").innerText = formataDinheiro(v); }
-
-function mostrarErro(msg, cor = "#f23645") {
-    const el = document.getElementById("mensagem-erro");
-    el.innerText = msg; el.style.color = cor;
-    setTimeout(() => { el.innerText = ""; }, 4000);
-}
 
 // LÓGICA DE SELECIONAR COR NOS BOTÕES
 function selecionarCor(cor, botaoClicado) {
@@ -97,7 +30,7 @@ async function monitorarJogo() {
         }
 
         const playerRes = await fetch(`${baseUrl}/players/${jogadorID}`);
-        if(playerRes.ok) atualizarSaldoNaTela((await playerRes.json()).current_currency);
+        if(playerRes.ok) modificarSaldoNaTela((await playerRes.json()).current_currency);
 
     } catch (error) {}
 }
@@ -216,7 +149,7 @@ async function fazerAposta() {
         mostrarErro("✅ Aposta Confirmada!", "#089981");
 
         const pRes = await fetch(`${baseUrl}/players/${jogadorID}`);
-        atualizarSaldoNaTela((await pRes.json()).current_currency);
+        modificarSaldoNaTela((await pRes.json()).current_currency);
 
     } catch (error) {
         mostrarErro(error.message);
@@ -247,4 +180,10 @@ async function carregarHistorico() {
     } catch(e) {}
 }
 
-iniciarSessao();
+async function iniciarSessaoRoleta() {
+    carregarHistorico();
+    prepararRoletaEstatica();
+    setInterval(monitorarJogo, 1000);
+}
+
+iniciarSessaoRoleta();

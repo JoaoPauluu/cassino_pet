@@ -5,28 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PET Cassino{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block stylesheet %}{% endblock %}
 </head>
 <body>
     <header class="top-bar">
         <div class="logo-area">
-            <img src="{{ url_for('static', filename='img/logo-pet.jpg') }}"
-                 alt="Logo"
-                 class="logo"
-                 onerror="this.src='https://via.placeholder.com/150x50/1A1B20/FFFFFF?text=PET+CASSINO'">
+            <a href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='img/logo-pet.jpg') }}"
+                     alt="Logo"
+                     class="logo"
+                     onerror="this.src='https://via.placeholder.com/150x50/1A1B20/FFFFFF?text=PET+CASSINO'">
+            </a>
             <nav class="menu">
                 <a href="{{ url_for('painel') }}" class="{{ 'active' if active_page == 'painel' else '' }}">📺 Painel TV</a>
                 <a href="{{ url_for('roleta') }}" class="{{ 'active' if active_page == 'roleta' else '' }}">🎰 Roleta</a>
-                <a href="#">📈 Crash (Em breve)</a>
+                <a href="{{ url_for('coinflip') }}" class="{{ 'active' if active_page == 'coinflip' else '' }}">🃏 Coin Flip</a>
+                <a href="{{ url_for('crash') }}" class="{{ 'active' if active_page == 'crash' else '' }}">🚀 Crash</a>
             </nav>
         </div>
         {% block header_right %}
-        <div class="status-banco">🟢 Sistema Online</div>
+        <div class="user-area">
+            <button class="btn-config" onclick="configurarSistema()" title="Configurar Tablet">⚙️</button>
+            <div class="user-info">
+                <span id="nome-jogador">{{ username }}</span>
+                <span id="saldo-jogador" class="saldo">R$ 0,00</span>
+            </div>
+            <a href="{{ url_for('sair') }}" class="btn-sair" title="Sair da sessao">🚪 Sair</a>
+        </div>
         {% endblock %}
     </header>
 
     {% block content %}{% endblock %}
-
+    <!-- JOGADOR NOME É DEFINIDO AQUI PARA EVITAR ERRO DO JINJA DENTRO DE BASE.JS -->
+    <script>
+        const jogadorNome = {{ session.get("username")|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/base.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

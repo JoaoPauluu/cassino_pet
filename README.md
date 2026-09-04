@@ -198,11 +198,11 @@ frontend/
 ├── requirements.txt
 ├── static/
 │   ├── css/
-│   │   ├── index.css     # Painel TV
+│   │   ├── stats.css     # Painel TV
 │   │   ├── roleta.css    # Jogo Double
 │   │   └── auth.css      # Tela "Entrar"
 │   ├── js/
-│   │   ├── index.js      # Polling das estatisticas do Painel TV
+│   │   ├── stats.js      # Polling das estatisticas do Painel TV
 │   │   └── roleta.js     # Logica do jogo (roleta, apostas, historico)
 │   └── img/
 │       └── logo-pet.jpg

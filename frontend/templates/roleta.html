@@ -6,16 +6,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/roleta.css') }}">
 {% endblock %}
 
-{% block header_right %}
-<div class="user-area">
-    <button class="btn-config" onclick="configurarSistema()" title="Configurar Tablet">⚙️</button>
-    <div class="user-info">
-        <span id="nome-jogador">{{ username }}</span>
-        <span id="saldo-jogador" class="saldo">R$ 0,00</span>
-    </div>
-    <a href="{{ url_for('sair') }}" class="btn-sair" title="Sair da sessao">🚪 Sair</a>
-</div>
-{% endblock %}
 
 {% block content %}
 <main class="game-container">

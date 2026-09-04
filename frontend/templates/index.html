@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Seleção de Jogos - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/stats.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="dashboard game-selection">
+    <section class="welcome-container">
+        <h1 class="title-large">Bem-vindo, {{ username }}!</h1>
+        <h2 class="user-balance">Seu saldo é de: <span class="text-green">R$ {{ saldo }}</span></h2>
+    </section>
+
+    <section class="prompt-container">
+        <h3>O que gostaria de jogar?</h3>
+    </section>
+
+    <section class="games-grid">
+        <!-- Botão/Card para o Jogo 1 -->
+        <a href="{{ url_for('slots') }}" class="game-card">
+            <div class="game-icon">🎰</div>
+            <h3 class="game-title">Slots</h3>
+            <span class="game-desc">Gire e tente a sorte!</span>
+        </a>
+
+        <!-- Botão/Card para o Jogo 2 -->
+        <a href="{{ url_for('coinflip') }}" class="game-card">
+            <div class="game-icon">🃏</div>
+            <h3 class="game-title">Coin Flip</h3>
+            <span class="game-desc">Aposte em cara ou coroa.</span>
+        </a>
+
+        <!-- Botão/Card para o Jogo 3 -->
+        <a href="{{ url_for('roleta') }}" class="game-card">
+            <div class="game-icon">🎲</div>
+            <h3 class="game-title">Roleta</h3>
+            <span class="game-desc">Aposte nos seus números da sorte.</span>
+        </a>
+        
+        <!-- Botão/Card para o Jogo 4 -->
+        <a href="{{ url_for('crash') }}" class="game-card">
+            <div class="game-icon">🚀</div>
+            <h3 class="game-title">Crash</h3>
+            <span class="game-desc">Retire antes que decole!</span>
+        </a>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/selecao.js') }}"></script>
+{% endblock %}
