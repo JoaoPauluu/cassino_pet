@@ -2,6 +2,13 @@ import time
 import random
 import requests
 
+
+
+
+#======================
+# SCRIPT DESNECESSÁRIO!! MAL IMPLEMENTADO!
+#======================
+
 # Endereço da sua API (se rodar em outro PC no dia, mude aqui)
 BASE_URL = "http://localhost:8000"
 
