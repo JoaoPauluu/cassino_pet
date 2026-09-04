@@ -1,6 +1,6 @@
 // Puxa o IP salvo no cache. Se não tiver, usa localhost.
-let ipSalvo = localStorage.getItem("pet_api_ip") || "localhost";
-const API_URL = `http://${ipSalvo}:8000/statistics/summary`;
+let ipSalvo = localStorage.getItem("pet_api_ip") || "localhost:8000";
+const API_URL = `http://${ipSalvo}/statistics/summary`;
 
 const BANCA_INICIAL = 1000000.00;
 

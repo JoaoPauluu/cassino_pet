@@ -13,10 +13,14 @@ def roletaeuropeia():
     else:
         color = "green"
 
-    return {
-        'Resultado': num,
-        'Cor': color
-    }
+
+
+    # return {                  # SISTEMA DE CORES DEVE SER IMPLEMENTADO PELO FRONTEND!
+    #     'Resultado': num,
+    #     'Cor': color
+    # }
+
+    return num
 
 def crashout():
     houseedge = 0.2

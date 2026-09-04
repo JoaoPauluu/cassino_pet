@@ -9,10 +9,10 @@ const numerosVermelhos = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 function formataDinheiro(valor) { return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
 function configurarSistema() {
-    let ipSalvo = localStorage.getItem("pet_api_ip") || "localhost"; 
+    let ipSalvo = localStorage.getItem("pet_api_ip") || "localhost:8000"; 
     let dispSalvo = localStorage.getItem("pet_dispositivo") || "Tablet 01"; 
     
-    let novoIP = prompt("⚙️ 1/2 - IP da API (ex: 192.168.0.15):", ipSalvo);
+    let novoIP = prompt("⚙️ 1/2 - IP da API (ex: 192.168.0.15:8080):", ipSalvo);
     if (novoIP) {
         localStorage.setItem("pet_api_ip", novoIP);
         let novoDisp = prompt("⚙️ 2/2 - Nome deste Tablet:", dispSalvo);
@@ -31,7 +31,7 @@ async function iniciarSessao() {
         configurarSistema();
         return;
     }
-    baseUrl = `http://${ipAPI}:8000`;
+    baseUrl = `http://${ipAPI}`;
 
     // O nome do jogador agora vem da sessao do Flask (definido na tela
     // /entrar), em vez de perguntar aqui com prompt().
