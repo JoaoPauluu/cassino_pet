@@ -165,13 +165,14 @@ def _log_statistic(db: Session, player: models.Player, game: str, bet: float, wi
 # Players (wallets)
 # ---------------------------------------------------------------------------
 def create_player(db: Session, payload: schemas.PlayerCreate) -> models.Player:
+    import random
+    starting_currency = payload.starting_currency if payload.starting_currency is not None else round(random.gauss(6500, 1500), -2)
+    current_currency = payload.current_currency if payload.current_currency is not None else starting_currency
     row = models.Player(
         name=payload.name,
         device=payload.device,
-        starting_currency=payload.starting_currency,
-        current_currency=(
-            payload.current_currency if payload.current_currency is not None else payload.starting_currency
-        ),
+        starting_currency=starting_currency,
+        current_currency=current_currency,
     )
     db.add(row)
     db.commit()

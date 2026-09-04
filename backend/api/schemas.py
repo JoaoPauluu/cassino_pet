@@ -69,7 +69,7 @@ class PlayerSummary(BaseModel):
 class PlayerCreate(BaseModel):
     name: str = Field(..., min_length=1)
     device: str = Field(..., min_length=1, description="Terminal/tablet identifier")
-    starting_currency: float = Field(..., ge=0)
+    starting_currency: Optional[float] = Field(None, ge=0, description="Defaults to a random value if omitted")
     current_currency: Optional[float] = Field(
         None, ge=0, description="Defaults to starting_currency if omitted"
     )
@@ -86,7 +86,7 @@ class PlayerOut(BaseModel):
     id: str
     name: str
     device: str
-    starting_currency: float
+    starting_currency: Optional[float] = None
     current_currency: float
     created_at: datetime
 

@@ -37,7 +37,7 @@ async function criarJogador(nome, dispositivo) {
         const response = await fetch(`${baseUrl}/players`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: nome, device: dispositivo, starting_currency: 10000 })
+            body: JSON.stringify({ name: nome, device: dispositivo})
         });
         return await response.json();
     } catch (error) {
