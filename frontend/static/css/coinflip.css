@@ -1,0 +1,302 @@
+:root {
+    --gold: #d4af37;
+    --gold-bright: #f5d872;
+    --gold-dark: #8a6d1f;
+}
+
+.coin-page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 30px 20px 50px;
+    width: 100%;
+}
+
+.mensagem-erro {
+    min-height: 20px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+/* MESA / MOEDA */
+.mesa {
+    width: 100%;
+    max-width: 420px;
+    background: linear-gradient(180deg, #223022 0%, #16261c 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 40px 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), inset 0 0 60px rgba(8, 153, 129, 0.06);
+}
+
+.palco-moeda {
+    display: flex;
+    justify-content: center;
+    perspective: 900px;
+}
+
+.moeda {
+    width: 150px;
+    height: 150px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 1.5s cubic-bezier(0.2, 0.85, 0.35, 1);
+}
+
+.face {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    backface-visibility: hidden;
+    background:
+        repeating-conic-gradient(from 0deg, var(--gold-dark) 0deg 4deg, var(--gold) 4deg 8deg) border-box;
+    border: 6px solid transparent;
+}
+
+.face::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 28%, var(--gold-bright), var(--gold) 55%, var(--gold-dark) 100%);
+    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.18), inset 0 4px 10px rgba(255, 255, 255, 0.25);
+}
+
+.face-coroa {
+    transform: rotateY(180deg);
+}
+
+.face-cifrao,
+.face-numero,
+.face-label {
+    position: relative;
+    z-index: 1;
+    color: #4a3a0c;
+}
+
+.face-cifrao {
+    font-size: 2.2rem;
+    font-weight: 900;
+}
+
+.face-numero {
+    font-size: 2.6rem;
+    font-weight: 900;
+}
+
+.face-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+/* RESULTADO */
+.resultado-msg {
+    min-height: 30px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.resultado-msg.ganhou { color: var(--accent-green); }
+.resultado-msg.perdeu { color: var(--accent-red); }
+
+/* ESCOLHA DE LADO */
+.escolha {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.escolha-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.escolha-botoes {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-lado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-lado:hover:not(:disabled) { border-color: var(--gold); color: var(--text-main); }
+
+.btn-lado.ativo {
+    border-color: var(--gold);
+    color: var(--text-main);
+    box-shadow: 0 0 0 1px var(--gold) inset, 0 0 12px rgba(212, 175, 55, 0.25);
+}
+
+.btn-lado:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mini-moeda {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 35% 28%, var(--gold-bright), var(--gold) 60%, var(--gold-dark) 100%);
+    color: #4a3a0c;
+    font-size: 0.7rem;
+    font-weight: 900;
+}
+
+/* CONTROLES */
+.controles {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 460px;
+}
+
+.aposta-controle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.aposta-label {
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.aposta-stepper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-stepper {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-stepper:hover { border-color: var(--gold); color: var(--gold-bright); }
+.btn-stepper:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#valor-aposta {
+    min-width: 92px;
+    text-align: center;
+    font-weight: 900;
+}
+
+.btn-max {
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-max:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+.btn-girar {
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color: #1a1406;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 40px;
+    font-weight: 900;
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(212, 175, 55, 0.3);
+    transition: transform 0.1s, box-shadow 0.15s;
+}
+
+.btn-girar:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(212, 175, 55, 0.4); }
+.btn-girar:active:not(:disabled) { transform: translateY(1px); }
+.btn-girar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+.regra-info {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    text-align: center;
+    max-width: 320px;
+}
+
+/* HISTÓRICO */
+.historico {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.historico-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.historico-lista {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 320px;
+}
+
+.historico-item {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 900;
+    border: 1px solid var(--border-color);
+}
+
+.historico-item.venceu { color: var(--accent-green); border-color: var(--accent-green); }
+.historico-item.perdeu { color: var(--accent-red); border-color: var(--accent-red); }
+
+@media (max-width: 480px) {
+    .moeda { width: 120px; height: 120px; }
+    .face-cifrao { font-size: 1.7rem; }
+    .face-numero { font-size: 2rem; }
+}

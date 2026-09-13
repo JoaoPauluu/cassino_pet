@@ -22,6 +22,7 @@
                 <a href="{{ url_for('roleta') }}" class="{{ 'active' if active_page == 'roleta' else '' }}">🎰 Roleta</a>
                 <a href="{{ url_for('coinflip') }}" class="{{ 'active' if active_page == 'coinflip' else '' }}">🃏 Coin Flip</a>
                 <a href="{{ url_for('crash') }}" class="{{ 'active' if active_page == 'crash' else '' }}">🚀 Crash</a>
+                <a href="{{ url_for('slots') }}" class="{{ 'active' if active_page == 'caca_niquel' else '' }}">🍒 Caça-Níquel</a>
             </nav>
         </div>
         {% block header_right %}
@@ -40,7 +41,7 @@
 
 
     <!-- JOGADOR NOME É DEFINIDO AQUI PARA EVITAR ERRO DO JINJA DENTRO DE BASE.JS -->
-    
+
     <script>
         const jogadorNome = {{ session.get("username")|tojson }};
     </script>

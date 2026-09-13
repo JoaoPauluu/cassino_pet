@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Coin Flip - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/coinflip.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="coin-page">
+
+    <p id="mensagem-erro" class="mensagem-erro"></p>
+
+    <section class="mesa">
+        <div class="palco-moeda">
+            <div class="moeda" id="moeda">
+                <div class="face face-cara">
+                    <span class="face-cifrao">R$</span>
+                    <span class="face-label">CARA</span>
+                </div>
+                <div class="face face-coroa">
+                    <span class="face-numero">1</span>
+                    <span class="face-label">COROA</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="resultado-msg" class="resultado-msg"></div>
+
+    <section class="escolha">
+        <span class="escolha-label">Escolha um lado</span>
+        <div class="escolha-botoes">
+            <button type="button" class="btn-lado ativo" id="btn-cara" onclick="escolherLado('cara')">
+                <span class="mini-moeda">R$</span>
+                <span>Cara</span>
+            </button>
+            <button type="button" class="btn-lado" id="btn-coroa" onclick="escolherLado('coroa')">
+                <span class="mini-moeda">1</span>
+                <span>Coroa</span>
+            </button>
+        </div>
+    </section>
+
+    <section class="controles">
+        <div class="aposta-controle">
+            <span class="aposta-label">Aposta</span>
+            <div class="aposta-stepper">
+                <button type="button" class="btn-stepper" id="btn-menos" onclick="alterarAposta(-10)">−</button>
+                <span id="valor-aposta">R$ 10,00</span>
+                <button type="button" class="btn-stepper" id="btn-mais" onclick="alterarAposta(10)">+</button>
+            </div>
+            <button type="button" class="btn-max" onclick="apostaMax()">MAX</button>
+        </div>
+
+        <button type="button" id="btn-girar" class="btn-girar" onclick="girarMoeda()">
+            <span id="btn-girar-texto">JOGAR</span>
+        </button>
+
+        <p class="regra-info">Acertou o lado escolhido, dobra a aposta. Errou, perde o valor apostado.</p>
+    </section>
+
+    <section class="historico">
+        <span class="historico-label">Últimos resultados</span>
+        <div class="historico-lista" id="historico-lista"></div>
+    </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/coinflip.js') }}"></script>
+{% endblock %}

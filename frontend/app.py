@@ -94,16 +94,14 @@ def coinflip():
     """Mesa do Coin Flip. Exige nome de jogador definido (sessao)."""
     if "username" not in session:
         return redirect(url_for("entrar", next=url_for("coinflip")))
-    return "ainda não implementado"
-    #return render_template("coinflip.html", active_page="coinflip")
+    return render_template("coinflip.html", active_page="coinflip")
 
 @app.route("/slots")
 def slots():
     """Mesa do Slots. Exige nome de jogador definido (sessao)."""
     if "username" not in session:
         return redirect(url_for("entrar", next=url_for("slots")))
-    return "ainda não implementado"
-    #return render_template("slots.html", active_page="slots")
+    return render_template("caca_niquel.html", active_page="slots")
 
 
 

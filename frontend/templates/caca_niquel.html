@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Caça-Níquel - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/caca_niquel.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="slot-page">
+
+    <p id="mensagem-erro" class="mensagem-erro"></p>
+
+    <section class="maquina">
+        <div class="maquina-topo">
+            <span class="maquina-titulo">CAÇA-NÍQUEL</span>
+        </div>
+
+        <div class="janela">
+            <div class="reels-area" id="reels-area">
+
+                <div class="reel" data-reel="0">
+                    <div class="reel-img-wrap">
+                        <img class="reel-img" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f352.png" alt="símbolo">
+                        <span class="reel-emoji-fallback">🍒</span>
+                    </div>
+                </div>
+                <div class="reel" data-reel="1">
+                    <div class="reel-img-wrap">
+                        <img class="reel-img" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f352.png" alt="símbolo">
+                        <span class="reel-emoji-fallback">🍒</span>
+                    </div>
+                </div>
+                <div class="reel" data-reel="2">
+                    <div class="reel-img-wrap">
+                        <img class="reel-img" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f352.png" alt="símbolo">
+                        <span class="reel-emoji-fallback">🍒</span>
+                    </div>
+                </div>
+                <div class="reel" data-reel="3">
+                    <div class="reel-img-wrap">
+                        <img class="reel-img" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f352.png" alt="símbolo">
+                        <span class="reel-emoji-fallback">🍒</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="linha-pagamento"></div>
+    </section>
+
+    <div id="resultado-msg" class="resultado-msg"></div>
+
+    <section class="controles">
+        <div class="aposta-controle">
+            <span class="aposta-label">Aposta</span>
+            <div class="aposta-stepper">
+                <button type="button" class="btn-stepper" id="btn-menos" onclick="alterarAposta(-10)">−</button>
+                <span id="valor-aposta">R$ 10,00</span>
+                <button type="button" class="btn-stepper" id="btn-mais" onclick="alterarAposta(10)">+</button>
+            </div>
+            <button type="button" class="btn-max" onclick="apostaMax()">MAX</button>
+        </div>
+
+        <button type="button" id="btn-girar" class="btn-girar" onclick="girar()">
+            <span id="btn-girar-texto">GIRAR</span>
+        </button>
+
+        <button type="button" class="btn-paytable" onclick="togglePaytable()">Tabela de prêmios</button>
+    </section>
+
+    <section id="paytable" class="paytable oculto">
+        <h2>Tabela de prêmios</h2>
+        <p class="paytable-sub">Multiplicadores sobre o valor apostado</p>
+        <div class="paytable-grid" id="paytable-grid"></div>
+        <p class="paytable-nota">🍒 x2 (sem outra combinação) devolve 1x a aposta.</p>
+    </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/caca_niquel.js') }}"></script>
+{% endblock %}
