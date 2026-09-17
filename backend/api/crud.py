@@ -265,11 +265,12 @@ def place_roulette_bet(db: Session, game_id: str, payload: schemas.RouletteBetCr
 
     player = get_player(db, payload.player)
 
-    existing = db.execute(
-        select(models.RoulettePlayer).filter_by(roulette_game_id=game_id, player_id=player.id)
-    ).scalars().first()
-    if existing is not None:
-        raise ConflictError("Player has already placed a bet in this roulette game")
+    # Restringir a uma aposta por jogador por rodada.
+    # existing = db.execute(
+    #     select(models.RoulettePlayer).filter_by(roulette_game_id=game_id, player_id=player.id)
+    # ).scalars().first()
+    # if existing is not None:
+    #     raise ConflictError("Player has already placed a bet in this roulette game")
 
     if player.current_currency < payload.money_bet:
         raise InsufficientFundsError(f"Player {player.name} has insufficient balance")
@@ -280,6 +281,7 @@ def place_roulette_bet(db: Session, game_id: str, payload: schemas.RouletteBetCr
         player_id=player.id,
         number_bet=payload.number_bet,
         money_bet=payload.money_bet,
+        color_bet=payload.color_bet
     )
     db.add(bet)
     db.commit()

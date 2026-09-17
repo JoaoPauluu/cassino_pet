@@ -123,8 +123,8 @@ class RouletteBetCreate(BaseModel):
     """POST body for a player joining/betting in the current roulette game."""
 
     player: str = Field(..., description="Player id")
-    number_bet: int = Field(..., ge=0, le=36)
-    color_bet: str = Field(..., description="Color of the bet: 'red', 'black', or 'green'")
+    number_bet: int = Field(..., ge=-1, le=36)
+    color_bet: str = Field(..., description="Color of the bet: 'red', 'black', or 'none'")
     money_bet: float = Field(..., gt=0)
 
 

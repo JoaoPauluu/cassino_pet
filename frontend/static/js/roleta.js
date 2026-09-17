@@ -8,6 +8,13 @@
 // GET /roulette/games/{id}/players, que são a mesma fonte de verdade para
 // todos os jogadores conectados. O backend também é quem decide vitórias e
 // derrotas (settlement em /draw); o frontend só reflete isso na tela.
+//
+// Cada jogador pode fazer VÁRIAS apostas na mesma rodada (em números e/ou
+// cores diferentes). Cada aposta é enviada como uma chamada separada a
+// POST /roulette/games/{id}/join. Uma aposta é sempre em número OU em cor
+// (nunca as duas ao mesmo tempo): o campo que não foi escolhido é enviado
+// como placeholder (-1 para number_bet, "none" para color_bet) para manter
+// o payload sempre com o mesmo formato.
 
 const NOME_JOGO = "roleta";
 const APOSTA_MIN = 10;
@@ -15,6 +22,7 @@ const APOSTA_PASSO = 10;
 const APOSTA_MAX_PADRAO = 500;
 const INTERVALO_POLL_MS = 1500;
 const PAGAMENTO_NUMERO_MULT = 36;
+const PAGAMENTO_COR_MULT = 2.0;
 
 const NUMEROS_VERMELHOS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
@@ -26,11 +34,12 @@ function corDoNumero(n) {
 let saldoAtual = 0;
 let apostaAtual = APOSTA_MIN;
 let numeroSelecionado = null;
+let corSelecionada = null;
 
 let rodadaAtualId = null;
 let statusAtual = null;
 let apostaProcessadaId = null; // id da rodada cujo resultado já foi exibido
-let minhaAposta = null; // {number_bet, money_bet} nesta rodada, vindo do servidor
+let minhasApostas = []; // lista de {number_bet, color_bet, money_bet} nesta rodada, vindas do servidor
 let historicoNumeros = [];
 let pollEmAndamento = false;
 
@@ -43,18 +52,18 @@ function atualizarDisplayAposta() {
 }
 
 function alterarAposta(delta) {
-    if (minhaAposta) return;
     const novo = apostaAtual + delta;
     const max = apostaMaxDisponivel();
     if (novo < APOSTA_MIN || novo > Math.max(max, APOSTA_MIN)) return;
     apostaAtual = novo;
     atualizarDisplayAposta();
+    atualizarBotaoApostar();
 }
 
 function apostaMax() {
-    if (minhaAposta) return;
     apostaAtual = apostaMaxDisponivel();
     atualizarDisplayAposta();
+    atualizarBotaoApostar();
 }
 
 /* ---------- TABULEIRO ---------- */
@@ -86,12 +95,29 @@ function gerarTabuleiro() {
     }
 }
 
+function limparSelecaoVisual() {
+    document.querySelectorAll(".casa").forEach((el) => el.classList.remove("selecionada"));
+    document.querySelectorAll(".btn-cor").forEach((el) => el.classList.remove("selecionada"));
+}
+
 function selecionarNumero(n) {
-    if (minhaAposta || statusAtual !== "waiting_for_bets") return;
+    if (statusAtual !== "waiting_for_bets") return;
     numeroSelecionado = n;
+    corSelecionada = null;
+    limparSelecaoVisual();
     document.querySelectorAll(".casa").forEach((el) => {
         el.classList.toggle("selecionada", Number(el.dataset.numero) === n);
     });
+    atualizarBotaoApostar();
+}
+
+function selecionarCor(cor) {
+    if (statusAtual !== "waiting_for_bets") return;
+    corSelecionada = cor;
+    numeroSelecionado = null;
+    limparSelecaoVisual();
+    const btn = document.getElementById(cor === "vermelho" ? "btn-cor-vermelho" : "btn-cor-preto");
+    btn.classList.add("selecionada");
     atualizarBotaoApostar();
 }
 
@@ -99,43 +125,55 @@ function atualizarBotaoApostar() {
     const btn = document.getElementById("btn-apostar");
     const texto = document.getElementById("btn-apostar-texto");
 
-    if (minhaAposta) {
-        btn.disabled = true;
-        texto.innerText = `Aposta feita: nº ${minhaAposta.number_bet}`;
-        return;
-    }
     if (statusAtual !== "waiting_for_bets") {
         btn.disabled = true;
         texto.innerText = statusAtual === "running" ? "Apostas encerradas" : "Aguardando abertura das apostas...";
         return;
     }
-    if (numeroSelecionado === null) {
+    if (numeroSelecionado === null && corSelecionada === null) {
         btn.disabled = true;
-        texto.innerText = "Selecione um número";
+        texto.innerText = "Selecione um número ou uma cor";
+        return;
+    }
+    if (apostaAtual > saldoAtual) {
+        btn.disabled = true;
+        texto.innerText = "Saldo insuficiente";
         return;
     }
     btn.disabled = false;
-    texto.innerText = `Apostar no ${numeroSelecionado}`;
+    texto.innerText = numeroSelecionado !== null
+        ? `Apostar no ${numeroSelecionado}`
+        : `Apostar no ${corSelecionada}`;
 }
 
 function aplicarBloqueioTabuleiro() {
-    const travado = !!minhaAposta || statusAtual !== "waiting_for_bets";
+    const travado = statusAtual !== "waiting_for_bets";
     document.querySelectorAll(".casa").forEach((el) => {
         el.classList.toggle("desabilitada", travado);
     });
+    document.querySelectorAll(".btn-cor").forEach((el) => {
+        el.disabled = travado;
+    });
 }
 
-function destacarNumeroVencedor(numero) {
+function destacarVencedores(numero) {
     document.querySelectorAll(".casa").forEach((el) => {
         el.classList.toggle("vencedora", Number(el.dataset.numero) === numero);
     });
+    const cor = corDoNumero(numero);
+    document.getElementById("btn-cor-vermelho").classList.toggle("vencedora", numero !== 0 && cor === "vermelho");
+    document.getElementById("btn-cor-preto").classList.toggle("vencedora", numero !== 0 && cor === "preto");
 }
 
 function limparSelecaoTabuleiro() {
     document.querySelectorAll(".casa").forEach((el) => {
         el.classList.remove("selecionada", "vencedora");
     });
+    document.querySelectorAll(".btn-cor").forEach((el) => {
+        el.classList.remove("selecionada", "vencedora");
+    });
     numeroSelecionado = null;
+    corSelecionada = null;
 }
 
 /* ---------- ESTADO DA RODADA ---------- */
@@ -193,20 +231,49 @@ function limparResultadoMsg() {
     msg.innerText = "";
 }
 
+function apostaGanhou(aposta, numeroSorteado) {
+    if (aposta.number_bet !== undefined && aposta.number_bet !== null && aposta.number_bet !== -1) {
+        return aposta.number_bet === numeroSorteado;
+    }
+    if (aposta.color_bet && aposta.color_bet !== "none") {
+        return numeroSorteado !== 0 && aposta.color_bet === corDoNumero(numeroSorteado);
+    }
+    return false;
+}
+
+function ganhoDaAposta(aposta, numeroSorteado) {
+    if (!apostaGanhou(aposta, numeroSorteado)) return 0;
+    if (aposta.number_bet !== undefined && aposta.number_bet !== null && aposta.number_bet !== -1) {
+        return Math.round(aposta.money_bet * PAGAMENTO_NUMERO_MULT * 100) / 100;
+    }
+    return Math.round(aposta.money_bet * PAGAMENTO_COR_MULT * 100) / 100;
+}
+
 function mostrarResultadoPessoal(numeroSorteado) {
     const msg = document.getElementById("resultado-msg");
-    if (!minhaAposta) {
+    msg.className = "resultado-msg";
+
+    if (!minhasApostas || minhasApostas.length === 0) {
         msg.innerText = `Número sorteado: ${numeroSorteado}. Você não apostou nesta rodada.`;
         msg.classList.add("perdeu");
         return;
     }
-    const venceu = minhaAposta.number_bet === numeroSorteado;
-    if (venceu) {
-        const ganhoEstimado = Math.round(minhaAposta.money_bet * PAGAMENTO_NUMERO_MULT * 100) / 100;
-        msg.innerText = `Você acertou o ${numeroSorteado}! Ganhou ${formataDinheiro(ganhoEstimado)}.`;
+
+    let totalGanho = 0;
+    let acertos = 0;
+    minhasApostas.forEach((aposta) => {
+        const ganho = ganhoDaAposta(aposta, numeroSorteado);
+        if (ganho > 0) {
+            totalGanho += ganho;
+            acertos += 1;
+        }
+    });
+
+    if (totalGanho > 0) {
+        msg.innerText = `Saiu o ${numeroSorteado}! Você acertou ${acertos} de ${minhasApostas.length} aposta(s) e ganhou ${formataDinheiro(totalGanho)}.`;
         msg.classList.add("ganhou");
     } else {
-        msg.innerText = `Saiu o ${numeroSorteado}. Você apostou no ${minhaAposta.number_bet} e não foi dessa vez.`;
+        msg.innerText = `Saiu o ${numeroSorteado}. Nenhuma das suas ${minhasApostas.length} aposta(s) venceu desta vez.`;
         msg.classList.add("perdeu");
     }
 }
@@ -230,13 +297,25 @@ function renderizarJogadores(apostas) {
         const linha = document.createElement("div");
         linha.className = `jogador-linha ${ehVoce ? "voce" : ""}`;
 
+        const temNumero = aposta.number_bet !== undefined && aposta.number_bet !== null && aposta.number_bet !== -1;
+        const temCor = aposta.color_bet && aposta.color_bet !== "none";
+
         const bolinha = document.createElement("span");
-        bolinha.className = `jogador-numero ${corDoNumero(aposta.number_bet)}`;
-        bolinha.innerText = String(aposta.number_bet);
+        if (temNumero) {
+            bolinha.className = `jogador-numero ${corDoNumero(aposta.number_bet)}`;
+            bolinha.innerText = String(aposta.number_bet);
+        } else if (temCor) {
+            bolinha.className = `jogador-numero ${aposta.color_bet}`;
+            bolinha.innerText = aposta.color_bet === "vermelho" ? "V" : "P";
+        } else {
+            bolinha.className = "jogador-numero verde";
+            bolinha.innerText = "?";
+        }
 
         const nome = document.createElement("span");
         nome.className = "jogador-nome";
-        nome.innerText = ehVoce ? "Você" : `Jogador #${String(aposta.player).slice(-4)}`;
+        const rotuloAposta = temNumero ? `nº ${aposta.number_bet}` : (temCor ? aposta.color_bet : "—");
+        nome.innerText = ehVoce ? `Você (${rotuloAposta})` : `Jogador #${String(aposta.player).slice(-4)} (${rotuloAposta})`;
 
         const valor = document.createElement("span");
         valor.className = "jogador-valor";
@@ -258,20 +337,28 @@ async function apiGet(caminho) {
 }
 
 async function confirmarAposta() {
-    if (minhaAposta || numeroSelecionado === null || statusAtual !== "waiting_for_bets") return;
+    if ((numeroSelecionado === null && corSelecionada === null) || statusAtual !== "waiting_for_bets") return;
     if (!jogadorID) { mostrarErro("Aguardando conexão com a API..."); return; }
     if (apostaAtual > saldoAtual) { mostrarErro("Saldo insuficiente para essa aposta."); return; }
     if (!rodadaAtualId) { mostrarErro("Nenhuma rodada aberta no momento."); return; }
 
     const btn = document.getElementById("btn-apostar");
+    const textoBtn = document.getElementById("btn-apostar-texto");
     btn.disabled = true;
-    document.getElementById("btn-apostar-texto").innerText = "Enviando aposta...";
+    textoBtn.innerText = "Enviando aposta...";
+
+    const payload = {
+        player: jogadorID,
+        number_bet: numeroSelecionado !== null ? numeroSelecionado : -1,
+        color_bet: corSelecionada !== null ? corSelecionada : "none",
+        money_bet: apostaAtual,
+    };
 
     try {
         const resp = await fetch(`${baseUrl}/roulette/games/${rodadaAtualId}/join`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: jogadorID, number_bet: numeroSelecionado, money_bet: apostaAtual }),
+            body: JSON.stringify(payload),
         });
 
         if (!resp.ok) {
@@ -288,8 +375,13 @@ async function confirmarAposta() {
         // Dedução otimista; o saldo oficial é sincronizado no próximo poll.
         saldoAtual = Math.round((saldoAtual - apostaAtual) * 100) / 100;
         modificarSaldoNaTela(saldoAtual);
-        minhaAposta = { number_bet: numeroSelecionado, money_bet: apostaAtual };
-        aplicarBloqueioTabuleiro();
+        minhasApostas.push(payload);
+
+        // Limpa a seleção para permitir uma nova aposta (em outro número/cor)
+        // ainda dentro da mesma rodada.
+        numeroSelecionado = null;
+        corSelecionada = null;
+        limparSelecaoVisual();
         atualizarBotaoApostar();
     } catch (error) {
         mostrarErro("Erro de conexão ao apostar.");
@@ -302,7 +394,7 @@ async function processarRodada(rodada) {
 
     if (novoId !== rodadaAtualId) {
         rodadaAtualId = novoId;
-        minhaAposta = null;
+        minhasApostas = [];
         limparSelecaoTabuleiro();
         limparResultadoMsg();
         ocultarNumeroResultado();
@@ -318,13 +410,15 @@ async function processarRodada(rodada) {
         return;
     }
 
-    // Sincroniza apostas desta rodada (inclui a nossa, se já feita antes de
-    // um reload de página, e as de todos os outros jogadores conectados).
+    // Sincroniza apostas desta rodada (inclui todas as nossas, se já feitas
+    // antes de um reload de página, e as de todos os outros jogadores
+    // conectados). Um mesmo jogador pode aparecer várias vezes na lista,
+    // uma linha por aposta feita.
     try {
         const apostas = await apiGet(`/roulette/games/${rodada.id}/players`);
         renderizarJogadores(apostas);
-        const minha = apostas.find((a) => a.player === jogadorID);
-        minhaAposta = minha ? { number_bet: minha.number_bet, money_bet: minha.money_bet } : minhaAposta;
+        const minhas = apostas.filter((a) => a.player === jogadorID);
+        if (minhas.length > 0) minhasApostas = minhas;
     } catch (error) {
         // painel de jogadores é informativo; falha aqui não trava o jogo
     }
@@ -337,7 +431,7 @@ async function processarRodada(rodada) {
 
         if (apostaProcessadaId !== rodada.id) {
             apostaProcessadaId = rodada.id;
-            destacarNumeroVencedor(rodada.number_draw);
+            destacarVencedores(rodada.number_draw);
             registrarHistorico(rodada.number_draw);
             mostrarResultadoPessoal(rodada.number_draw);
             const saldo = await obterSaldo();
