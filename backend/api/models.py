@@ -7,7 +7,7 @@ per resolved bet, linked to the player via `player_id` (a real FK to
 `players.id`, not a denormalized name/device pair).
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
@@ -31,6 +31,10 @@ def _uuid_str() -> str:
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
+def _brasil_now() -> datetime:
+    """Return the current time in Brasilia timezone (UTC-3)."""
+    return datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=-3)))
+
 
 class Statistics(Base):
     __tablename__ = "statistics"
@@ -45,7 +49,7 @@ class Statistics(Base):
     # any kind of "statistics" table -- without it you can't compute
     # sessions, daily totals, or plot anything over time. Defaults
     # server-side so game clients don't need to send it themselves.
-    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=_brasil_now, nullable=False, index=True)
 
     player = relationship("Player")
 
@@ -72,7 +76,7 @@ class Player(Base):
     starting_currency = Column(Float, nullable=False)
     current_currency = Column(Float, nullable=False)
 
-    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=_brasil_now, nullable=False)
 
     __table_args__ = (
         Index("ix_players_name_device", "name", "device"),
@@ -84,7 +88,7 @@ class RouletteGame(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid_str)  # unique_identifier
     number_draw = Column(Integer, nullable=True)  # set once the wheel is resolved
-    game_start_time = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    game_start_time = Column(DateTime(timezone=True), default=_brasil_now, nullable=False, index=True)
     status = Column(String, nullable=False, default="waiting_for_bets", index=True)
 
     bets = relationship("RoulettePlayer", back_populates="game", cascade="all, delete-orphan")
@@ -118,7 +122,7 @@ class CrashGame(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid_str)  # unique_identifier
     crash_multiplier = Column(Float, nullable=True)  # set once the round crashes
-    game_start_time = Column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    game_start_time = Column(DateTime(timezone=True), default=_brasil_now, nullable=False, index=True)
     status = Column(String, nullable=False, default="waiting_for_bets", index=True)
 
     bets = relationship("CrashPlayer", back_populates="game", cascade="all, delete-orphan")
