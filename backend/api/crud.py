@@ -278,7 +278,7 @@ def place_roulette_bet(db: Session, game_id: str, payload: schemas.RouletteBetCr
     bet = models.RoulettePlayer(
         roulette_game_id=game_id,
         player_id=player.id,
-        color_bet=payload.color_bet,
+        number_bet=payload.number_bet,
         money_bet=payload.money_bet,
     )
     db.add(bet)
@@ -294,9 +294,7 @@ def list_roulette_bets(db: Session, game_id: str) -> list[models.RoulettePlayer]
     ).scalars().all()
 
 
-ROULETTE_RED_NUMBERS = {1, 2, 3, 4, 5, 6, 7}
-
-def resolve_roulette_game(db: Session, game_id: str, number_draw: int) -> tuple[models.RouletteGame, list[dict]]:
+def resolve_roulette_game(db: Session, game_id: str, number_draw: int, color_draw: str) -> tuple[models.RouletteGame, list[dict]]:
     """Called by roulette.py once it has drawn the winning number. Settles
     every bet, credits winners, logs each outcome to `statistics`, and
     closes the game out."""
@@ -306,32 +304,19 @@ def resolve_roulette_game(db: Session, game_id: str, number_draw: int) -> tuple[
 
     bets = list_roulette_bets(db, game_id)
     results = []
-    
-    # Determina a cor vencedora com base no número sorteado pelo Croupier
-    if number_draw == 0:
-        winning_color = "white"
-    elif number_draw in ROULETTE_RED_NUMBERS:
-        winning_color = "red"
-    else:
-        winning_color = "black"
-
     for bet in bets:
         player = get_player(db, bet.player_id)
-        
-        # O jogador apostou na cor certa?
-        won = bet.color_bet == winning_color
-        
-        if won:
-            multiplier = 14 if winning_color == "white" else 2
-            win = bet.money_bet * multiplier
+        won_number = bet.number_bet == number_draw
+        won_color = bet.color_bet == color_draw
+        if won_number:
+            win = bet.money_bet * models.ROULETTE_STRAIGHT_PAYOUT_MULTIPLIER
+        elif won_color:
+            win = bet.money_bet * models.ROULLETE_COLOR_PAYOUT_MULTIPLIER
         else:
             win = 0.0
-            
         if win:
             player.current_currency += win
-            
         _log_statistic(db, player, game="roulette", bet=bet.money_bet, win=win)
-        
         results.append(
             {
                 "player_id": player.id,

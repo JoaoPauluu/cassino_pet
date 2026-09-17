@@ -293,7 +293,7 @@ def set_roulette_status(game_id: str, payload: schemas.RouletteStatusUpdate, db:
     response_model=schemas.RouletteBetOut,
     status_code=status.HTTP_201_CREATED,
     tags=["roulette"],
-    summary="A player joins the current round with a number + bet amount (only while waiting_for_bets)",
+    summary="A player joins the current round with a number or color + bet amount (only while waiting_for_bets)",
 )
 def join_roulette_game(game_id: str, payload: schemas.RouletteBetCreate, db: Session = Depends(get_db)):
     bet = crud.place_roulette_bet(db, game_id, payload)
@@ -318,7 +318,7 @@ def list_roulette_game_players(game_id: str, db: Session = Depends(get_db)):
     summary="Report the drawn number (called by roulette.py). Settles all bets and ends the game.",
 )
 def draw_roulette_game(game_id: str, payload: schemas.RouletteDrawRequest, db: Session = Depends(get_db)):
-    game, results = crud.resolve_roulette_game(db, game_id, payload.number_draw)
+    game, results = crud.resolve_roulette_game(db, game_id, payload.number_draw, payload.color_draw)
     return {"game": game, "results": results}
 
 

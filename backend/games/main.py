@@ -45,10 +45,11 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
         #Sorteia o resultado do jogo
         try:
             draw = random_drawer.roletaeuropeia()
-            request_body = {"number_draw": draw}
+            request_body = {"number_draw": draw[0], "color_draw": draw[1]}
             request = await client.post(f"{URL}/roulette/games/{current_game_id}/draw", json=request_body)
 
             logger.info(f"Resultado do jogo {current_game_id}: {draw}")
+            logger.info(request.json())
 
         except Exception as e:
             logger.error(f"Erro ao sortear o jogo: {e}")
@@ -106,6 +107,7 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Resultado do jogo {current_game_id}: {draw}")
+            logger.info(logger.info(request.json()))
 
         except Exception as e:
             logger.error(f"Erro ao sortear o jogo: {e}")
