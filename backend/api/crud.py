@@ -164,9 +164,18 @@ def _log_statistic(db: Session, player: models.Player, game: str, bet: float, wi
 # ---------------------------------------------------------------------------
 # Players (wallets)
 # ---------------------------------------------------------------------------
+
+def _generate_random_currency(mean: float = 1000, stddev: float = 250) -> float:
+    """Generate a random starting currency for a new player, using a
+    Gaussian distribution with mean and stddev, rounded to the
+    nearest hundred."""
+    import random
+
+    return round(random.gauss(mean, stddev), -2)
+
 def create_player(db: Session, payload: schemas.PlayerCreate) -> models.Player:
     import random
-    starting_currency = payload.starting_currency if payload.starting_currency is not None else round(random.gauss(6500, 1500), -2)
+    starting_currency = payload.starting_currency if payload.starting_currency is not None else _generate_random_currency()
     current_currency = payload.current_currency if payload.current_currency is not None else starting_currency
     row = models.Player(
         name=payload.name,
