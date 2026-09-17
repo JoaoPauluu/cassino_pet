@@ -1,50 +1,157 @@
 {% extends "base.html" %}
 
-{% block title %}Painel Global - PET Cassino{% endblock %}
+{% block title %}Estatísticas | PET Cassino{% endblock %}
 
 {% block stylesheet %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/stats.css') }}">
 {% endblock %}
 
 {% block content %}
-<main class="dashboard">
-    <section class="banca-container">
-        <h2>Banca Global (Reserva)</h2>
-        <h1 id="saldo-banca">R$ 1.000.000,00</h1>
+<main class="stats-page">
+
+    <div class="stats-toolbar">
+        <div class="toolbar-title">
+            <h1>Estatísticas da casa</h1>
+            <p id="stats-atualizado" class="toolbar-sub">Carregando dados…</p>
+        </div>
+
+        <div class="toolbar-filtros">
+            <label class="campo">
+                <span>Jogo</span>
+                <select id="filtro-jogo">
+                    <option value="">Todos</option>
+                </select>
+            </label>
+
+            <label class="campo">
+                <span>Período</span>
+                <select id="filtro-periodo">
+                    <option value="1">Hoje</option>
+                    <option value="7" selected>7 dias</option>
+                    <option value="30">30 dias</option>
+                    <option value="">Tudo</option>
+                </select>
+            </label>
+
+            <label class="campo">
+                <span>Dispositivo</span>
+                <select id="filtro-dispositivo">
+                    <option value="">Todos</option>
+                </select>
+            </label>
+
+            <button id="btn-atualizar" class="btn-acao" type="button">Atualizar</button>
+
+            <label class="campo-check">
+                <input type="checkbox" id="auto-atualizar" checked>
+                <span>Atualizar sozinho</span>
+            </label>
+        </div>
+    </div>
+
+    <p id="mensagem-erro" class="faixa-erro"></p>
+
+    <section class="kpis" aria-label="Resumo do período">
+        <article class="kpi destaque">
+            <span class="kpi-rotulo">Resultado da casa</span>
+            <strong class="kpi-valor" id="kpi-lucro">—</strong>
+            <span class="kpi-nota" id="kpi-lucro-nota">Apostado menos pago</span>
+        </article>
+        <article class="kpi">
+            <span class="kpi-rotulo">Total apostado</span>
+            <strong class="kpi-valor" id="kpi-apostado">—</strong>
+            <span class="kpi-nota" id="kpi-rodadas">—</span>
+        </article>
+        <article class="kpi">
+            <span class="kpi-rotulo">Total pago</span>
+            <strong class="kpi-valor" id="kpi-pago">—</strong>
+            <span class="kpi-nota" id="kpi-retorno">—</span>
+        </article>
+        <article class="kpi">
+            <span class="kpi-rotulo">Jogadores</span>
+            <strong class="kpi-valor" id="kpi-jogadores">—</strong>
+            <span class="kpi-nota" id="kpi-jogadores-nota">—</span>
+        </article>
+        <article class="kpi">
+            <span class="kpi-rotulo">Saldo em carteiras</span>
+            <strong class="kpi-valor" id="kpi-saldo">—</strong>
+            <span class="kpi-nota" id="kpi-saldo-nota">Soma de todas as contas</span>
+        </article>
     </section>
 
-    <section class="indicadores-grid">
-        <div class="card">
-            <span class="card-title">GGR (Lucro da Casa)</span>
-            <span class="card-value text-green" id="ggr">R$ 0,00</span>
-            <span class="card-desc">Receita bruta retida</span>
-        </div>
-        <div class="card">
-            <span class="card-title">Handle (Turnover)</span>
-            <span class="card-value" id="handle">R$ 0,00</span>
-            <span class="card-desc">Volume total apostado</span>
-        </div>
-        <div class="card">
-            <span class="card-title">Hold % (Margem)</span>
-            <span class="card-value" id="hold-pct">0.00%</span>
-            <span class="card-desc">GGR / Handle</span>
-        </div>
-        <div class="card">
-            <span class="card-title">Payout %</span>
-            <span class="card-value text-red" id="payout-pct">0.00%</span>
-            <span class="card-desc">Devolvido aos jogadores</span>
-        </div>
-        <div class="card">
-            <span class="card-title">Tíquete Médio</span>
-            <span class="card-value" id="tiquete">R$ 0,00</span>
-            <span class="card-desc">Valor médio por aposta</span>
-        </div>
-        <div class="card">
-            <span class="card-title">Total de Apostas</span>
-            <span class="card-value" id="total-apostas">0</span>
-            <span class="card-desc">Rodadas jogadas</span>
+    <section class="colunas">
+        <article class="painel">
+            <header class="painel-topo">
+                <h2>Roleta</h2>
+                <span class="painel-nota" id="roleta-nota">—</span>
+            </header>
+            <div id="roleta-numeros" class="fita-numeros">
+                <p class="vazio">Sem rodadas registradas.</p>
+            </div>
+            <div id="roleta-cores" class="barra-cores"></div>
+            <ul id="roleta-lista" class="lista-rodadas"></ul>
+        </article>
+
+        <article class="painel">
+            <header class="painel-topo">
+                <h2>Crash</h2>
+                <span class="painel-nota" id="crash-nota">—</span>
+            </header>
+            <div id="crash-grafico" class="grafico-crash">
+                <p class="vazio">Sem rodadas registradas.</p>
+            </div>
+            <ul id="crash-lista" class="lista-rodadas"></ul>
+        </article>
+    </section>
+
+    <section class="painel">
+        <header class="painel-topo">
+            <h2>Últimas apostas</h2>
+            <span class="painel-nota" id="apostas-nota">—</span>
+        </header>
+        <div class="tabela-rolagem">
+            <table class="tabela">
+                <thead>
+                    <tr>
+                        <th>Quando</th>
+                        <th>Jogador</th>
+                        <th>Jogo</th>
+                        <th class="num">Aposta</th>
+                        <th class="num">Retorno</th>
+                        <th class="num">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-apostas">
+                    <tr><td colspan="6" class="vazio">Carregando…</td></tr>
+                </tbody>
+            </table>
         </div>
     </section>
+
+    <section class="painel">
+        <header class="painel-topo">
+            <h2>Jogadores no período</h2>
+            <span class="painel-nota">Ordenado pelo resultado do jogador</span>
+        </header>
+        <div class="tabela-rolagem">
+            <table class="tabela">
+                <thead>
+                    <tr>
+                        <th>Jogador</th>
+                        <th class="num">Apostas</th>
+                        <th class="num">Apostado</th>
+                        <th class="num">Recebido</th>
+                        <th class="num">Resultado</th>
+                        <th class="num">Saldo atual</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-jogadores">
+                    <tr><td colspan="6" class="vazio">Carregando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
 </main>
 {% endblock %}
 
