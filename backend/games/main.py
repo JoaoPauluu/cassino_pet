@@ -27,14 +27,26 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
         # Espera as apostas serem feitas
         await asyncio.sleep(30)
 
-        # Sorteia o resultado do jogo
+        # Começa a Rodar a roleta
+        try:
+            request_body = {"status": "running"}
+            request = await client.patch(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
+
+            logger.info(f"Iniciado jogo {current_game_id}: running")
+
+        except Exception as e:
+            logger.error(f"Erro ao sortear o jogo: {e}")
+            await asyncio.sleep(5)
+            continue
+
+        # Deixa a roleta rolar
+        await asyncio.sleep(10)
+
+        #Sorteia o resultado do jogo
         try:
             draw = random_drawer.roletaeuropeia()
             request_body = {"number_draw": draw}
             request = await client.post(f"{URL}/roulette/games/{current_game_id}/draw", json=request_body)
-
-            request_body = {"status": "running"}
-            request = await client.patch(f"{URL}/roulette/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Resultado do jogo {current_game_id}: {draw}")
 
@@ -43,8 +55,6 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
             await asyncio.sleep(5)
             continue
 
-        # Espera os jogadores verem o resultado
-        await asyncio.sleep(30)
 
         # Finaliza o jogo
         try:
@@ -57,6 +67,9 @@ async def roulette_routine(client: httpx.AsyncClient, URL: str):
             logger.error(f"Erro ao finalizar o jogo: {e}")
             await asyncio.sleep(5)
             continue
+
+        # Espera os jogadores verem o resultado
+        await asyncio.sleep(10)
 
     return
 
@@ -99,7 +112,8 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             await asyncio.sleep(5)
             continue
 
-        # Espera os jogadores verem o resultado
+
+        # Da tempo para o front-end Jogar o jogo"
         await asyncio.sleep(30)
 
         # Finaliza o jogo
@@ -113,6 +127,9 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             logger.error(f"Erro ao finalizar o jogo: {e}")
             await asyncio.sleep(5)
             continue
+
+        # Espera os jogadores verem o resultado
+        await asyncio.sleep(10)
 
     return
 
