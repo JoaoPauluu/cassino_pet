@@ -307,7 +307,7 @@ def join_roulette_game(game_id: str, payload: schemas.RouletteBetCreate, db: Ses
     summary="List all bets placed in a roulette game",
 )
 def list_roulette_game_players(game_id: str, db: Session = Depends(get_db)):
-    bets = crud.list_roulette_bets(db, game_id)
+    bets = crud.list_roulette_bets_with_players(db, game_id)
     return [schemas.RouletteBetOut.from_row(b) for b in bets]
 
 

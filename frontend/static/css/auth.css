@@ -31,6 +31,7 @@
 }
 .auth-card input:focus { border-color: var(--accent-green); }
 
-.auth-card .btn-apostar { width: 100%; }
+.auth-card .btn-apostar { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-muted); text-decoration: none; padding: 8px 14px; border-radius: 5px; font-size: 0.85rem; font-weight: 700; transition: 0.2s; white-space: nowrap; }
+.auth-card .btn-apostar:hover { border-color: var(--accent-green); color: var(--accent-green); }
 
 .auth-erro { color: var(--accent-red); font-size: 0.9rem; font-weight: 700; }

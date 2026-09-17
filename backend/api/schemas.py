@@ -131,7 +131,7 @@ class RouletteBetCreate(BaseModel):
 class RouletteBetOut(BaseModel):
     id: str
     roulette_game: str
-    player: str
+    player: PlayerOut
     number_bet: int
     color_bet: str
     money_bet: float
@@ -143,7 +143,7 @@ class RouletteBetOut(BaseModel):
         return cls(
             id=row.id,
             roulette_game=row.roulette_game_id,
-            player=row.player_id,
+            player=PlayerOut.model_validate(row.player),
             number_bet=row.number_bet,
             color_bet=row.color_bet,
             money_bet=row.money_bet,

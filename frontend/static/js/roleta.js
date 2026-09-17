@@ -293,7 +293,7 @@ function renderizarJogadores(apostas) {
     }
 
     apostas.forEach((aposta) => {
-        const ehVoce = aposta.player === jogadorID;
+        const ehVoce = aposta.player.id === jogadorID;
         const linha = document.createElement("div");
         linha.className = `jogador-linha ${ehVoce ? "voce" : ""}`;
 
@@ -315,7 +315,7 @@ function renderizarJogadores(apostas) {
         const nome = document.createElement("span");
         nome.className = "jogador-nome";
         const rotuloAposta = temNumero ? `nº ${aposta.number_bet}` : (temCor ? aposta.color_bet : "—");
-        nome.innerText = ehVoce ? `Você (${rotuloAposta})` : `Jogador #${String(aposta.player).slice(-4)} (${rotuloAposta})`;
+        nome.innerText = ehVoce ? `Você (${rotuloAposta})` : `${aposta.player.name} (${rotuloAposta})`;
 
         const valor = document.createElement("span");
         valor.className = "jogador-valor";
@@ -417,7 +417,7 @@ async function processarRodada(rodada) {
     try {
         const apostas = await apiGet(`/roulette/games/${rodada.id}/players`);
         renderizarJogadores(apostas);
-        const minhas = apostas.filter((a) => a.player === jogadorID);
+        const minhas = apostas.filter((a) => a.player.id === jogadorID);
         if (minhas.length > 0) minhasApostas = minhas;
     } catch (error) {
         // painel de jogadores é informativo; falha aqui não trava o jogo

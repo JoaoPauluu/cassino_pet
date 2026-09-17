@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
@@ -303,6 +303,18 @@ def list_roulette_bets(db: Session, game_id: str) -> list[models.RoulettePlayer]
     return db.execute(
         select(models.RoulettePlayer).filter_by(roulette_game_id=game_id)
     ).scalars().all()
+
+def list_roulette_bets_with_players(db: Session, game_id: str) -> list[dict]:
+    get_roulette_game(db, game_id)  # 404 if missing
+
+    stmt = (
+        select(models.RoulettePlayer)
+        .options(joinedload(models.RoulettePlayer.player))
+        .filter(models.RoulettePlayer.roulette_game_id == game_id)
+    )
+
+    bets = db.scalars(stmt).all()
+    return bets
 
 
 def resolve_roulette_game(db: Session, game_id: str, number_draw: int, color_draw: str) -> tuple[models.RouletteGame, list[dict]]:
