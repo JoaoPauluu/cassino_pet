@@ -86,8 +86,7 @@ def crash():
     """Mesa do Crash. Exige nome de jogador definido (sessao)."""
     if "username" not in session:
         return redirect(url_for("entrar", next=url_for("crash")))
-    return "ainda não implementado"
-    #return render_template("crash.html", active_page="crash")
+    return render_template("crash.html", active_page="crash")
 
 @app.route("/coinflip")
 def coinflip():

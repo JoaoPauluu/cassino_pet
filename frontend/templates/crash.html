@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Crash - PET Cassino{% endblock %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crash.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="crash-page">
+
+    <p id="mensagem-erro" class="mensagem-erro"></p>
+
+    <section class="status-rodada">
+        <span id="status-badge" class="status-badge">Conectando à rodada...</span>
+    </section>
+
+    <section class="palco-crash">
+        <div class="trilha-crash" id="trilha-crash">
+            <div class="preenchimento-crash" id="preenchimento-crash"></div>
+            <span class="foguete" id="foguete">🚀</span>
+        </div>
+        <div class="multiplicador-numero" id="multiplicador-numero">Aguardando...</div>
+        <p id="crash-final" class="crash-final oculto"></p>
+    </section>
+
+    <div id="resultado-msg" class="resultado-msg"></div>
+
+    <section class="controles">
+        <div class="aposta-controle">
+            <span class="aposta-label">Aposta</span>
+            <div class="aposta-stepper">
+                <button type="button" class="btn-stepper" id="btn-menos" onclick="alterarAposta(-10)">−</button>
+                <span id="valor-aposta">R$ 10,00</span>
+                <button type="button" class="btn-stepper" id="btn-mais" onclick="alterarAposta(10)">+</button>
+            </div>
+            <button type="button" class="btn-max" onclick="apostaMax()">MAX</button>
+        </div>
+
+        <button type="button" id="btn-acao" class="btn-girar" onclick="acaoPrincipal()" disabled>
+            <span id="btn-acao-texto">Aguardando abertura das apostas...</span>
+        </button>
+
+        <p class="regra-info">Aposte antes da decolagem. Enquanto o foguete sobe, o multiplicador cresce — retire a qualquer momento para embolsar sua aposta vezes o multiplicador atual. Se o foguete explodir antes de você retirar, a aposta é perdida.</p>
+    </section>
+
+    <section class="jogadores-painel">
+        <span class="jogadores-label">Apostas desta rodada</span>
+        <div class="jogadores-lista" id="jogadores-lista">
+            <p class="jogadores-vazio">Nenhuma aposta ainda nesta rodada.</p>
+        </div>
+    </section>
+
+    <section class="historico">
+        <span class="historico-label">Últimos multiplicadores</span>
+        <div class="historico-lista" id="historico-lista"></div>
+    </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/crash.js') }}"></script>
+{% endblock %}
