@@ -5,12 +5,12 @@
 const NOME_JOGO = "caca-niquel";
 
 const SIMBOLOS = [
-    { id: "cherry", emoji: "🍒", img: "1f352", peso: 30, mult4: 4, mult3: 1.5 },
-    { id: "lemon", emoji: "🍋", img: "1f34b", peso: 25, mult4: 6, mult3: 2 },
-    { id: "bell", emoji: "🔔", img: "1f514", peso: 20, mult4: 10, mult3: 3 },
-    { id: "diamond", emoji: "💎", img: "1f48e", peso: 15, mult4: 15, mult3: 5 },
-    { id: "star", emoji: "⭐", img: "2b50", peso: 7, mult4: 25, mult3: 8 },
-    { id: "clover", emoji: "🍀", img: "1f340", peso: 3, mult4: 50, mult3: 15 },
+    { id: "cherry", emoji: "🍒", img: "1f352", peso: 30, mult4: 5, mult3: 1.9 },
+    { id: "lemon", emoji: "🍋", img: "1f34b", peso: 25, mult4: 7.5, mult3: 2.5 },
+    { id: "bell", emoji: "🔔", img: "1f514", peso: 20, mult4: 12.5, mult3: 3.8 },
+    { id: "diamond", emoji: "💎", img: "1f48e", peso: 15, mult4: 19, mult3: 6.3 },
+    { id: "star", emoji: "⭐", img: "2b50", peso: 7, mult4: 31, mult3: 10.1 },
+    { id: "clover", emoji: "🍀", img: "1f340", peso: 3, mult4: 63, mult3: 18.9 },
 ];
 const PESO_TOTAL = SIMBOLOS.reduce((soma, s) => soma + s.peso, 0);
 const PAR_CEREJA_MULT = 1;

@@ -19,12 +19,12 @@ def crashout():
     houseedge = 0.2
 
     if rand.random() < houseedge:
-        return round(rand.uniform(0, houseedge),2)
+        return round(rand.uniform(0, 1),2)
     
     ligma = rand.random()
     mult = 1 / (1 - ligma)
 
-    maxmult = 20
+    maxmult = 100
     if mult > maxmult:
         mult = maxmult
 

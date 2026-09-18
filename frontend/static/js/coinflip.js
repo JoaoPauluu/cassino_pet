@@ -6,7 +6,7 @@ const NOME_JOGO = "coinflip";
 const APOSTA_MIN = 10;
 const APOSTA_PASSO = 10;
 const APOSTA_MAX_PADRAO = 500;
-const PAGAMENTO_MULT = 2; // dobra a aposta ao acertar
+const PAGAMENTO_MULT = 1.98; 
 const HISTORICO_MAX = 12;
 
 let saldoAtual = 0;
