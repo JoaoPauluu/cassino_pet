@@ -403,7 +403,7 @@ def join_crash_game(game_id: str, payload: schemas.CrashBetCreate, db: Session =
     summary="List all bets/players in a crash game",
 )
 def list_crash_game_players(game_id: str, db: Session = Depends(get_db)):
-    bets = crud.list_crash_bets(db, game_id)
+    bets = crud.list_crash_bets_with_players(db, game_id)
     return [schemas.CrashBetOut.from_row(b) for b in bets]
 
 

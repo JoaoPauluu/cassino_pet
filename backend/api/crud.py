@@ -440,6 +440,18 @@ def list_crash_bets(db: Session, game_id: str) -> list[models.CrashPlayer]:
     get_crash_game(db, game_id)  # 404 if missing
     return db.execute(select(models.CrashPlayer).filter_by(crash_game_id=game_id)).scalars().all()
 
+def list_crash_bets_with_players(db: Session, game_id: str) -> list[dict]:
+    get_crash_game(db, game_id)  # 404 if missing
+
+    stmt = (
+        select(models.CrashPlayer)
+        .options(joinedload(models.CrashPlayer.player))
+        .filter(models.CrashPlayer.crash_game_id == game_id)
+    )
+
+    bets = db.scalars(stmt).all()
+    return bets
+
 
 def cashout_crash_bet(db: Session, game_id: str, payload: schemas.CrashCashoutRequest) -> models.CrashPlayer:
     """Called when the frontend reports a player hit 'cash out' at a given

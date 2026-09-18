@@ -188,7 +188,7 @@ class CrashBetCreate(BaseModel):
 class CrashBetOut(BaseModel):
     id: str
     crash_game: str
-    player: str
+    player: PlayerOut
     money_bet: float
     left: bool
     multiplier: Optional[float] = None
@@ -200,7 +200,7 @@ class CrashBetOut(BaseModel):
         return cls(
             id=row.id,
             crash_game=row.crash_game_id,
-            player=row.player_id,
+            player=PlayerOut.model_validate(row.player),
             money_bet=row.money_bet,
             left=row.left,
             multiplier=row.multiplier,
