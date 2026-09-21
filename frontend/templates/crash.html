@@ -13,12 +13,13 @@
 
     <section class="status-rodada">
         <span id="status-badge" class="status-badge">Conectando à rodada...</span>
+        <button type="button" id="btn-som" class="btn-som" onclick="alternarSom()" aria-label="Desativar som" title="Som ligado">🔊</button>
     </section>
 
     <section class="palco-crash">
-        <div class="trilha-crash" id="trilha-crash">
-            <div class="preenchimento-crash" id="preenchimento-crash"></div>
-            <span class="foguete" id="foguete">🚀</span>
+        <div class="grafico-crash" id="grafico-crash">
+            <canvas id="canvas-crash"></canvas>
+            <span class="foguete" id="foguete"><span class="foguete-emoji">🚀</span></span>
         </div>
         <div class="multiplicador-numero" id="multiplicador-numero">Aguardando...</div>
         <p id="crash-final" class="crash-final oculto"></p>
