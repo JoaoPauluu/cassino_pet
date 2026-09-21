@@ -1,3 +1,4 @@
+import math
 import random as rand
 
 def roletaeuropeia():
@@ -29,3 +30,26 @@ def crashout():
         mult = maxmult
 
     return round(mult, 2)
+
+def crash_multiplier_to_time(multiplier, growth_rate=0.06):
+    """Converts a target crash multiplier to the total elapsed time in seconds.
+
+    Args:
+        multiplier (float): The crash multiplier (e.g., 0.50, 1.00, 2.50).
+        growth_rate (float): Controls speed acceleration. Standard default is ~0.06.
+
+    Returns:
+        float: Duration in seconds from start (0.0s) to the crash point.
+    """
+    # If the crash is <= 0.0x, it crashes instantly at t = 0.0s
+    if multiplier <= 0.0:
+        return 0.0
+
+    # For multipliers under 1.0x, time scales linearly in a fraction of a second
+    if multiplier < 1.0:
+        # e.g., 0.5x crashes halfway through the 1-second mark
+        return round(multiplier * 0.5, 3)
+
+    # Exponential elapsed time calculation for multipliers >= 1.0x
+    seconds = math.log(multiplier) / growth_rate
+    return round(seconds, 3)

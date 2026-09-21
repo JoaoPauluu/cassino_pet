@@ -98,38 +98,41 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
         await asyncio.sleep(30)
 
         # Sorteia o resultado do jogo
+        draw = 0
         try:
             draw = random_drawer.crashout()
-            request_body = {"crash_multiplier": draw}
-            request = await client.post(f"{URL}/crash/games/{current_game_id}/crash", json=request_body)
-
             request_body = {"status": "running"}
             request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
-            logger.info(f"Resultado do jogo {current_game_id}: {draw}")
             logger.info(logger.info(request.json()))
 
         except Exception as e:
-            logger.error(f"Erro ao sortear o jogo: {e}")
+            logger.error(f"Erro ao rodar o jogo: {e}")
             await asyncio.sleep(5)
             continue
 
 
         # Da tempo para o front-end Jogar o jogo"
-        await asyncio.sleep(30)
+        await asyncio.sleep(random_drawer.crash_multiplier_to_time(draw))
 
-        # Finaliza o jogo
         try:
+            request_body = {"crash_multiplier": draw}
+            request = await client.post(f"{URL}/crash/games/{current_game_id}/crash", json=request_body)
+
             request_body = {"status": "ended"}
             request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
             logger.info(f"Jogo {current_game_id} finalizado.")
+
+            logger.info(f"Resultado do jogo {current_game_id}: {draw}")
+            logger.info(logger.info(request.json()))
 
         except Exception as e:
             logger.error(f"Erro ao finalizar o jogo: {e}")
             await asyncio.sleep(5)
             continue
 
+        
         # Espera os jogadores verem o resultado
         await asyncio.sleep(10)
 
