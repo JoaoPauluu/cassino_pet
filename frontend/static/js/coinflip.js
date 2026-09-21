@@ -18,6 +18,7 @@ let historico = [];
 
 const moedaEl = document.getElementById("moeda");
 
+
 function apostaMaxDisponivel() {
     return Math.max(APOSTA_MIN, Math.min(APOSTA_MAX_PADRAO, Math.floor(saldoAtual / APOSTA_PASSO) * APOSTA_PASSO));
 }

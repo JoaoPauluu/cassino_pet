@@ -19,8 +19,7 @@
                     <span class="face-label">CARA</span>
                 </div>
                 <div class="face face-coroa">
-                    <span class="face-numero">1</span>
-                    <span class="face-label">COROA</span>
+                    <img class="face-logo" src="{{ url_for('static', filename='img/logo-pet.png') }}" alt="Coroa: logo do PET-AME" draggable="false">
                 </div>
             </div>
         </div>
@@ -36,7 +35,7 @@
                 <span>Cara</span>
             </button>
             <button type="button" class="btn-lado" id="btn-coroa" onclick="escolherLado('coroa')">
-                <span class="mini-moeda">1</span>
+                <span class="mini-moeda mini-moeda-logo"><img src="{{ url_for('static', filename='img/logo-pet.png') }}" alt="" draggable="false"></span>
                 <span>Coroa</span>
             </button>
         </div>

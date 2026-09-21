@@ -54,6 +54,7 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     background:
         repeating-conic-gradient(from 0deg, var(--gold-dark) 0deg 4deg, var(--gold) 4deg 8deg) border-box;
@@ -65,16 +66,42 @@
     position: absolute;
     inset: 8px;
     border-radius: 50%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
     background: radial-gradient(circle at 35% 28%, var(--gold-bright), var(--gold) 55%, var(--gold-dark) 100%);
     box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.18), inset 0 4px 10px rgba(255, 255, 255, 0.25);
 }
 
+/* As duas faces ficavam exatamente no mesmo plano (z = 0) e brigavam pela
+   renderização durante o giro. Cada uma ganha 1px de profundidade. */
+.face-cara {
+    transform: translateZ(1px);
+}
+
 .face-coroa {
-    transform: rotateY(180deg);
+    transform: rotateY(180deg) translateZ(1px);
+}
+
+/* logo do PET-AME na face COROA */
+.face-logo {
+    position: absolute;
+    z-index: 1;
+    inset: 16px;
+    width: calc(100% - 32px);
+    height: calc(100% - 32px);
+    object-fit: contain;
+    border-radius: 50%;
+    background: #fbf6e3;
+    padding: 4px;
+    box-sizing: border-box;
+    box-shadow: inset 0 0 0 2px rgba(74, 58, 12, 0.35);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    user-select: none;
+    pointer-events: none;
 }
 
 .face-cifrao,
-.face-numero,
 .face-label {
     position: relative;
     z-index: 1;
@@ -83,11 +110,6 @@
 
 .face-cifrao {
     font-size: 2.2rem;
-    font-weight: 900;
-}
-
-.face-numero {
-    font-size: 2.6rem;
     font-weight: 900;
 }
 
@@ -163,6 +185,17 @@
     color: #4a3a0c;
     font-size: 0.7rem;
     font-weight: 900;
+}
+
+.mini-moeda-logo { overflow: hidden; }
+.mini-moeda-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fbf6e3;
+    padding: 2px;
+    box-sizing: border-box;
+    border-radius: 50%;
 }
 
 /* CONTROLES */
@@ -298,5 +331,8 @@
 @media (max-width: 480px) {
     .moeda { width: 120px; height: 120px; }
     .face-cifrao { font-size: 1.7rem; }
-    .face-numero { font-size: 2rem; }
+    .face-logo { inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); }
 }
+
+/* navbar do base.html (oculta ao carregar) */
+.navbar-oculta { display: none !important; }
