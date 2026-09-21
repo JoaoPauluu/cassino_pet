@@ -520,6 +520,317 @@ function preencherSelect(id, valores, rotulo = v => v) {
     if (valores.includes(escolhido)) select.value = escolhido;
 }
 
+/* ---------- navbar do base.html ---------- */
+
+// Seletores prováveis da navbar herdada de base.html. Ajuste aqui se a sua for diferente.
+const SELETORES_NAVBAR = ["#navbar", ".navbar", "nav", ".topbar", ".top-bar", "body > header"];
+
+function ocultarNavbar() {
+    document.querySelectorAll(SELETORES_NAVBAR.join(",")).forEach(el => {
+        if (el.closest(".stats-page")) return;
+        el.classList.add("navbar-oculta");
+    });
+}
+
+/* ---------- caixa da casa (grafico de velas) ---------- */
+
+const INTERVALOS_AUTO = [60e3, 300e3, 900e3, 1800e3, 3600e3, 14400e3, 86400e3];
+const VELAS_ALVO = 70;
+
+let linhasCaixa = [];
+let tipoGrafico = "velas";
+let geo = null;   // geometria do ultimo desenho, usada pela mira e pela dica
+
+const fmtCompacto = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+
+function formatoEixo(valor, casas) {
+    if (Math.abs(valor) >= 100000) return fmtCompacto.format(valor);
+    return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(valor);
+}
+
+function rotuloIntervalo(ms) {
+    if (ms >= 86400e3) return `${Math.round(ms / 86400e3)} dia(s)`;
+    if (ms >= 3600e3) return `${Math.round(ms / 3600e3)} h`;
+    return `${Math.round(ms / 60e3)} min`;
+}
+
+function escolherIntervalo(pontos) {
+    const escolhido = document.getElementById("caixa-intervalo").value;
+    if (escolhido !== "auto") return Number(escolhido);
+    if (pontos.length < 2) return INTERVALOS_AUTO[0];
+    const duracao = pontos[pontos.length - 1].t - pontos[0].t;
+    return INTERVALOS_AUTO.find(iv => duracao / iv <= VELAS_ALVO) || INTERVALOS_AUTO[INTERVALOS_AUTO.length - 1];
+}
+
+// Cada vela guarda o caixa acumulado: abertura, maxima, minima e fechamento.
+function construirVelas(pontos, intervalo) {
+    const desvio = new Date().getTimezoneOffset() * 60000;   // agrupa pelo horario local
+    const velas = [];
+    let acumulado = 0;
+    let atual = null;
+
+    pontos.forEach(p => {
+        const inicio = Math.floor((p.t.getTime() - desvio) / intervalo) * intervalo + desvio;
+        if (!atual || atual.inicio !== inicio) {
+            atual = { inicio, abertura: acumulado, maxima: acumulado, minima: acumulado, fechamento: acumulado, apostas: 0 };
+            velas.push(atual);
+        }
+        acumulado += p.v;
+        atual.fechamento = acumulado;
+        atual.maxima = Math.max(atual.maxima, acumulado);
+        atual.minima = Math.min(atual.minima, acumulado);
+        atual.apostas += 1;
+    });
+    return velas;
+}
+
+function escalaBonita(min, max, alvo = 6) {
+    if (max - min <= 0) { min -= 1; max += 1; }
+    const folga = (max - min) * 0.08;
+    min -= folga; max += folga;
+
+    const bruto = (max - min) / alvo;
+    const mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+    const norm = bruto / mag;
+    const passo = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+
+    const ini = Math.floor(min / passo) * passo;
+    const fim = Math.ceil(max / passo) * passo;
+    const marcas = [];
+    for (let v = ini; v <= fim + passo / 2; v += passo) marcas.push(Number(v.toFixed(10)));
+
+    const casas = passo >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(passo)));
+    return { min: ini, max: fim, marcas, casas };
+}
+
+function rotuloTempo(ms, intervalo, comData) {
+    const d = new Date(ms);
+    if (intervalo >= 86400e3) {
+        return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    }
+    const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return comData
+        ? d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + hora
+        : hora;
+}
+
+function renderizarCaixa(linhas) {
+    linhasCaixa = linhas;
+    desenharCaixa();
+}
+
+function desenharCaixa() {
+    const caixa = document.getElementById("caixa-grafico");
+    const svg = document.getElementById("caixa-svg");
+    const vazio = document.getElementById("caixa-vazio");
+    const dica = document.getElementById("caixa-dica");
+    const valorEl = document.getElementById("caixa-valor");
+    const extremosEl = document.getElementById("caixa-extremos");
+    const notaEl = document.getElementById("caixa-nota");
+
+    dica.style.display = "none";
+
+    const pontos = linhasCaixa.map(l => ({
+        t: dataDe(l, ["created_at", "timestamp", "date", "time"]),
+        v: numero(campo(l, ["bet", "bet_amount", "amount"], 0)) - numero(campo(l, ["win", "win_amount", "payout"], 0))
+    })).filter(p => p.t).sort((a, b) => a.t - b.t);
+
+    if (!pontos.length) {
+        geo = null;
+        svg.innerHTML = "";
+        vazio.style.display = "flex";
+        vazio.innerText = "Nenhuma aposta no período escolhido.";
+        valorEl.innerText = "—";
+        valorEl.className = "caixa-valor";
+        extremosEl.innerText = "";
+        notaEl.innerText = "";
+        return;
+    }
+
+    const W = caixa.clientWidth;
+    const H = caixa.clientHeight;
+    if (W < 50 || H < 50) return;
+
+    vazio.style.display = "none";
+
+    const intervalo = escolherIntervalo(pontos);
+    const velas = construirVelas(pontos, intervalo);
+    const n = velas.length;
+
+    const ultimo = velas[n - 1].fechamento;
+    const maximo = Math.max(...velas.map(v => v.maxima));
+    const minimo = Math.min(...velas.map(v => v.minima));
+    const lado = ultimo >= 0 ? "alta" : "baixa";
+
+    valorEl.innerText = dinheiroComSinal(ultimo);
+    valorEl.className = "caixa-valor " + classeSinal(ultimo);
+    extremosEl.innerText = `Máx ${dinheiroComSinal(maximo)} · Mín ${dinheiroComSinal(minimo)}`;
+    notaEl.innerText = `${pontos.length} aposta(s) · velas de ${rotuloIntervalo(intervalo)}`;
+
+    // geometria
+    const ML = 10, MR = 66, MT = 12, MB = 26;
+    const pw = W - ML - MR;
+    const ph = H - MT - MB;
+    const escala = escalaBonita(minimo, maximo);
+    const passo = pw / n;
+    const px = i => ML + passo * (i + 0.5);
+    const py = v => MT + ph * (1 - (v - escala.min) / (escala.max - escala.min));
+
+    let html = "";
+
+    // grade horizontal + eixo de valores (direita, como nas bolsas)
+    escala.marcas.forEach(m => {
+        const y = py(m);
+        html += `<line class="grade-linha" x1="${ML}" x2="${ML + pw}" y1="${y}" y2="${y}"/>`;
+        html += `<text class="eixo-texto" x="${ML + pw + 8}" y="${y + 4}">${escapar(formatoEixo(m, escala.casas))}</text>`;
+    });
+
+    // linha do zero = ponto de equilibrio da casa
+    if (escala.min < 0 && escala.max > 0) {
+        html += `<line class="zero-linha" x1="${ML}" x2="${ML + pw}" y1="${py(0)}" y2="${py(0)}"/>`;
+    }
+
+    // eixo do tempo
+    const espaco = Math.max(1, Math.ceil(90 / passo));
+    let diaAnterior = null;
+    velas.forEach((v, i) => {
+        if (i % espaco !== 0) return;
+        const dia = new Date(v.inicio).toDateString();
+        const comData = diaAnterior === null || dia !== diaAnterior;
+        diaAnterior = dia;
+        html += `<text class="eixo-texto" text-anchor="middle" x="${px(i)}" y="${H - 8}">${escapar(rotuloTempo(v.inicio, intervalo, comData))}</text>`;
+    });
+
+    // serie
+    if (tipoGrafico === "velas") {
+        const larguraCorpo = Math.max(1, Math.min(22, passo * 0.7));
+        velas.forEach((v, i) => {
+            const x = px(i);
+            const classe = v.fechamento >= v.abertura ? "vela-alta" : "vela-baixa";
+            const yAbertura = py(v.abertura);
+            const yFechamento = py(v.fechamento);
+            const topo = Math.min(yAbertura, yFechamento);
+            const altura = Math.max(1, Math.abs(yAbertura - yFechamento));
+            html += `<line class="${classe} vela-pavio" x1="${x}" x2="${x}" y1="${py(v.maxima)}" y2="${py(v.minima)}"/>`;
+            html += `<rect class="${classe} vela-corpo" x="${x - larguraCorpo / 2}" y="${topo}" width="${larguraCorpo}" height="${altura}"/>`;
+        });
+    } else {
+        const coords = velas.map((v, i) => `${px(i)},${py(v.fechamento)}`);
+        if (n > 1) {
+            const base = MT + ph;
+            html += `<path class="area-caixa ${lado}" d="M${px(0)},${base} L${coords.join(" L")} L${px(n - 1)},${base} Z"/>`;
+            html += `<path class="linha-caixa ${lado}" d="M${coords.join(" L")}"/>`;
+        }
+        html += `<circle class="preco-tag ${lado}" cx="${px(n - 1)}" cy="${py(ultimo)}" r="3.5"/>`;
+    }
+
+    // preco atual (ultimo fechamento)
+    const yUltimo = py(ultimo);
+    html += `<line class="preco-linha ${lado}" x1="${ML}" x2="${ML + pw}" y1="${yUltimo}" y2="${yUltimo}"/>`;
+    html += `<rect class="preco-tag ${lado}" x="${ML + pw + 1}" y="${yUltimo - 9}" width="${MR - 2}" height="18" rx="3"/>`;
+    html += `<text class="preco-tag-texto" x="${ML + pw + 8}" y="${yUltimo + 4}">${escapar(formatoEixo(ultimo, escala.casas))}</text>`;
+
+    // mira (segue o mouse)
+    html += `<g id="caixa-mira" style="display:none">
+        <line id="mira-v" class="mira-linha" y1="${MT}" y2="${MT + ph}"/>
+        <line id="mira-h" class="mira-linha" x1="${ML}" x2="${ML + pw}"/>
+        <rect id="mira-tag" class="mira-tag" x="${ML + pw + 1}" width="${MR - 2}" height="18" rx="3"/>
+        <text id="mira-tag-texto" class="mira-tag-texto" x="${ML + pw + 8}"></text>
+    </g>`;
+
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.innerHTML = html;
+
+    geo = { velas, intervalo, n, passo, px, py, ML, MT, pw, ph, W, H, escala };
+}
+
+function moverMira(evento) {
+    if (!geo) return;
+    const caixa = document.getElementById("caixa-grafico");
+    const dica = document.getElementById("caixa-dica");
+    const mira = document.getElementById("caixa-mira");
+    if (!mira) return;
+
+    const r = caixa.getBoundingClientRect();
+    const mx = evento.clientX - r.left;
+    const my = evento.clientY - r.top;
+
+    const dentro = mx >= geo.ML && mx <= geo.ML + geo.pw && my >= geo.MT && my <= geo.MT + geo.ph;
+    if (!dentro) { esconderMira(); return; }
+
+    const i = Math.min(geo.n - 1, Math.max(0, Math.floor((mx - geo.ML) / geo.passo)));
+    const v = geo.velas[i];
+    const x = geo.px(i);
+    const valorNoCursor = geo.escala.min + (1 - (my - geo.MT) / geo.ph) * (geo.escala.max - geo.escala.min);
+
+    mira.style.display = "";
+    document.getElementById("mira-v").setAttribute("x1", x);
+    document.getElementById("mira-v").setAttribute("x2", x);
+    document.getElementById("mira-h").setAttribute("y1", my);
+    document.getElementById("mira-h").setAttribute("y2", my);
+    document.getElementById("mira-tag").setAttribute("y", my - 9);
+    const texto = document.getElementById("mira-tag-texto");
+    texto.setAttribute("y", my + 4);
+    texto.textContent = formatoEixo(valorNoCursor, geo.escala.casas);
+
+    const variacao = v.fechamento - v.abertura;
+    dica.innerHTML = `
+        <div class="dica-topo">${escapar(rotuloTempo(v.inicio, geo.intervalo, true))}</div>
+        <div class="dica-linha"><span>Abertura</span><span>${escapar(dinheiroComSinal(v.abertura))}</span></div>
+        <div class="dica-linha"><span>Máxima</span><span>${escapar(dinheiroComSinal(v.maxima))}</span></div>
+        <div class="dica-linha"><span>Mínima</span><span>${escapar(dinheiroComSinal(v.minima))}</span></div>
+        <div class="dica-linha"><span>Fechamento</span><span class="${classeSinal(v.fechamento)}">${escapar(dinheiroComSinal(v.fechamento))}</span></div>
+        <div class="dica-linha"><span>Variação</span><span class="${classeSinal(variacao)}">${escapar(dinheiroComSinal(variacao))}</span></div>
+        <div class="dica-linha"><span>Apostas</span><span>${v.apostas}</span></div>`;
+    dica.style.display = "block";
+
+    const largura = dica.offsetWidth;
+    const altura = dica.offsetHeight;
+    let esquerda = x + 16;
+    if (esquerda + largura > geo.ML + geo.pw) esquerda = x - 16 - largura;
+    dica.style.left = Math.max(4, esquerda) + "px";
+    dica.style.top = Math.min(Math.max(my - altura / 2, 4), geo.H - altura - 4) + "px";
+}
+
+function esconderMira() {
+    const mira = document.getElementById("caixa-mira");
+    if (mira) mira.style.display = "none";
+    document.getElementById("caixa-dica").style.display = "none";
+}
+
+function iniciarGraficoCaixa() {
+    const caixa = document.getElementById("caixa-grafico");
+
+    caixa.addEventListener("mousemove", moverMira);
+    caixa.addEventListener("mouseleave", esconderMira);
+
+    document.querySelectorAll(".seg-btn").forEach(botao => {
+        botao.addEventListener("click", () => {
+            tipoGrafico = botao.dataset.tipo;
+            document.querySelectorAll(".seg-btn").forEach(b => {
+                const ativo = b === botao;
+                b.classList.toggle("ativo", ativo);
+                b.setAttribute("aria-pressed", String(ativo));
+            });
+            desenharCaixa();
+        });
+    });
+
+    document.getElementById("caixa-intervalo").addEventListener("change", desenharCaixa);
+
+    // redesenha quando o painel muda de tamanho
+    let quadro = null;
+    const redesenhar = () => {
+        if (quadro) cancelAnimationFrame(quadro);
+        quadro = requestAnimationFrame(desenharCaixa);
+    };
+    if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(redesenhar).observe(caixa);
+    } else {
+        window.addEventListener("resize", redesenhar);
+    }
+}
+
 /* ---------- carga principal ---------- */
 
 async function carregarEstatisticas() {
@@ -560,6 +871,7 @@ async function carregarEstatisticas() {
         )].sort());
 
         renderizarKPIs(resumo, listaLinhas, listaJogadores);
+        renderizarCaixa(listaLinhas);
         await Promise.all([
             renderizarRoleta(comoLista(roleta)),
             renderizarCrash(comoLista(crash))
@@ -596,6 +908,8 @@ document.addEventListener("visibilitychange", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+    ocultarNavbar();
+    iniciarGraficoCaixa();
     document.getElementById("btn-atualizar").addEventListener("click", carregarEstatisticas);
     document.getElementById("filtro-jogo").addEventListener("change", carregarEstatisticas);
     document.getElementById("filtro-periodo").addEventListener("change", carregarEstatisticas);
@@ -605,3 +919,5 @@ document.addEventListener("DOMContentLoaded", () => {
     carregarEstatisticas();
     ajustarAutoAtualizacao();
 });
+
+window.addEventListener("load", ocultarNavbar);

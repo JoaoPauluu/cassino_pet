@@ -79,29 +79,71 @@
         </article>
     </section>
 
-    <section class="colunas">
-        <article class="painel">
+    <section class="grade-principal">
+        <article class="painel painel-caixa">
             <header class="painel-topo">
-                <h2>Roleta</h2>
-                <span class="painel-nota" id="roleta-nota">—</span>
+                <div class="painel-titulo">
+                    <h2>Caixa da casa</h2>
+                    <span class="painel-sub">Resultado acumulado no período (apostado menos pago)</span>
+                </div>
+                <div class="caixa-controles">
+                    <div class="segmentado" role="group" aria-label="Tipo de gráfico">
+                        <button type="button" class="seg-btn ativo" data-tipo="velas" aria-pressed="true">Velas</button>
+                        <button type="button" class="seg-btn" data-tipo="linha" aria-pressed="false">Linha</button>
+                    </div>
+                    <label class="campo campo-compacto">
+                        <span>Intervalo</span>
+                        <select id="caixa-intervalo">
+                            <option value="auto" selected>Auto</option>
+                            <option value="60000">1 min</option>
+                            <option value="300000">5 min</option>
+                            <option value="900000">15 min</option>
+                            <option value="1800000">30 min</option>
+                            <option value="3600000">1 hora</option>
+                            <option value="14400000">4 horas</option>
+                            <option value="86400000">1 dia</option>
+                        </select>
+                    </label>
+                </div>
             </header>
-            <div id="roleta-numeros" class="fita-numeros">
-                <p class="vazio">Sem rodadas registradas.</p>
+
+            <div class="caixa-resumo">
+                <strong id="caixa-valor" class="caixa-valor">—</strong>
+                <span id="caixa-extremos" class="caixa-extremos"></span>
+                <span id="caixa-nota" class="painel-nota"></span>
             </div>
-            <div id="roleta-cores" class="barra-cores"></div>
-            <ul id="roleta-lista" class="lista-rodadas"></ul>
+
+            <div id="caixa-grafico" class="caixa-grafico">
+                <svg id="caixa-svg" role="img" aria-label="Gráfico do caixa da casa ao longo do tempo"></svg>
+                <p id="caixa-vazio" class="vazio">Carregando…</p>
+                <div id="caixa-dica" class="caixa-dica" role="status"></div>
+            </div>
         </article>
 
-        <article class="painel">
-            <header class="painel-topo">
-                <h2>Crash</h2>
-                <span class="painel-nota" id="crash-nota">—</span>
-            </header>
-            <div id="crash-grafico" class="grafico-crash">
-                <p class="vazio">Sem rodadas registradas.</p>
-            </div>
-            <ul id="crash-lista" class="lista-rodadas"></ul>
-        </article>
+        <div class="coluna-direita">
+            <article class="painel">
+                <header class="painel-topo">
+                    <h2>Roleta</h2>
+                    <span class="painel-nota" id="roleta-nota">—</span>
+                </header>
+                <div id="roleta-numeros" class="fita-numeros">
+                    <p class="vazio">Sem rodadas registradas.</p>
+                </div>
+                <div id="roleta-cores" class="barra-cores"></div>
+                <ul id="roleta-lista" class="lista-rodadas"></ul>
+            </article>
+
+            <article class="painel">
+                <header class="painel-topo">
+                    <h2>Crash</h2>
+                    <span class="painel-nota" id="crash-nota">—</span>
+                </header>
+                <div id="crash-grafico" class="grafico-crash">
+                    <p class="vazio">Sem rodadas registradas.</p>
+                </div>
+                <ul id="crash-lista" class="lista-rodadas"></ul>
+            </article>
+        </div>
     </section>
 
     <section class="painel">
