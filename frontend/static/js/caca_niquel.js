@@ -28,6 +28,100 @@ let girando = false;
 
 const reels = Array.from(document.querySelectorAll(".reel"));
 
+// ==========================================================
+// SONS (sintetizados via Web Audio API — sem arquivos externos)
+// ==========================================================
+const AudioCtxRef = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let somAtivo = true;
+let osciladorGiro = null;
+let gainGiro = null;
+
+function getAudioCtx() {
+    if (!AudioCtxRef) return null;
+    if (!audioCtx) audioCtx = new AudioCtxRef();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+}
+
+function tocarBeep({ freq = 440, duracao = 0.12, tipo = "sine", volume = 0.15, atraso = 0 } = {}) {
+    if (!somAtivo) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = tipo;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const inicio = ctx.currentTime + atraso;
+        gain.gain.setValueAtTime(0, inicio);
+        gain.gain.linearRampToValueAtTime(volume, inicio + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, inicio + duracao);
+        osc.start(inicio);
+        osc.stop(inicio + duracao + 0.03);
+    } catch (e) { /* ignora falhas de áudio */ }
+}
+
+function iniciarSomGiro() {
+    if (!somAtivo) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+        pararSomGiro();
+        osciladorGiro = ctx.createOscillator();
+        gainGiro = ctx.createGain();
+        osciladorGiro.type = "sawtooth";
+        osciladorGiro.frequency.value = 90;
+        gainGiro.gain.value = 0.05;
+        osciladorGiro.connect(gainGiro);
+        gainGiro.connect(ctx.destination);
+        osciladorGiro.start();
+    } catch (e) { /* ignora falhas de áudio */ }
+}
+
+function pararSomGiro() {
+    if (osciladorGiro) {
+        try {
+            const ctx = getAudioCtx();
+            gainGiro.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osciladorGiro.stop(ctx.currentTime + 0.18);
+        } catch (e) { /* ignora falhas de áudio */ }
+        osciladorGiro = null;
+        gainGiro = null;
+    }
+}
+
+function tocarSomReelParou() {
+    tocarBeep({ freq: 200, duracao: 0.09, tipo: "square", volume: 0.12 });
+}
+
+function tocarSomGanhou() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) =>
+        tocarBeep({ freq, duracao: 0.18, tipo: "triangle", volume: 0.16, atraso: i * 0.09 })
+    );
+}
+
+function tocarSomJackpot() {
+    const notas = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0];
+    notas.forEach((freq, i) =>
+        tocarBeep({ freq, duracao: 0.25, tipo: "sawtooth", volume: 0.16, atraso: i * 0.08 })
+    );
+}
+
+function tocarSomPerdeu() {
+    tocarBeep({ freq: 220, duracao: 0.22, tipo: "sine", volume: 0.12 });
+    tocarBeep({ freq: 155, duracao: 0.32, tipo: "sine", volume: 0.12, atraso: 0.14 });
+}
+
+function alternarSom() {
+    somAtivo = !somAtivo;
+    if (!somAtivo) pararSomGiro();
+    const btn = document.getElementById("btn-som");
+    if (btn) btn.innerText = somAtivo ? "🔊" : "🔇";
+}
+
 function sortearSimbolo() {
     let r = Math.random() * PESO_TOTAL;
     for (const s of SIMBOLOS) {
@@ -110,6 +204,7 @@ function animarReel(reelEl, simboloFinal, index) {
             definirSimboloVisual(imgEl, fallbackEl, simboloFinal);
             reelEl.classList.remove("girando");
             reelEl.classList.add("parou");
+            tocarSomReelParou();
             resolve();
         }, duracao);
     });
@@ -199,10 +294,13 @@ async function girar() {
     girando = true;
     setControlesAtivos(false);
     limparDestaques();
+    iniciarSomGiro();
 
     const resultadoFinal = [sortearSimbolo(), sortearSimbolo(), sortearSimbolo(), sortearSimbolo()];
 
     await Promise.all(reels.map((reelEl, i) => animarReel(reelEl, resultadoFinal[i], i)));
+
+    pararSomGiro();
 
     const { multiplicador, tipo, indices } = calcularResultado(resultadoFinal);
     const valorGanho = Math.round(apostaAtual * multiplicador * 100) / 100;
@@ -212,6 +310,14 @@ async function girar() {
     saldoAtual = Math.round((saldoAtual - apostaAtual + valorGanho) * 100) / 100;
     modificarSaldoNaTela(saldoAtual);
     mostrarResultado(valorGanho, tipo);
+
+    if (tipo === "jackpot") {
+        tocarSomJackpot();
+    } else if (tipo === "grande" || tipo === "consolo") {
+        tocarSomGanhou();
+    } else {
+        tocarSomPerdeu();
+    }
 
     await enviarEstatistica(apostaAtual, valorGanho);
     await sincronizarSaldoServidor();

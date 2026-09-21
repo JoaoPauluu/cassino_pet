@@ -55,6 +55,17 @@
     to { transform: rotate(360deg); }
 }
 
+.status-linha { display: flex; align-items: center; gap: 10px; }
+
+.btn-som {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border-color); background: var(--bg-card);
+    font-size: 0.95rem; cursor: pointer; transition: 0.15s;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-som:hover { border-color: var(--gold); }
+.btn-som.mudo { opacity: 0.55; }
+
 .status-badge {
     font-size: 0.85rem;
     font-weight: 700;
@@ -180,6 +191,19 @@
     border-color: var(--gold-bright);
     box-shadow: 0 0 10px rgba(245, 216, 114, 0.6);
     transform: scale(1.06);
+}
+
+/* Borda que "salta" de número em número enquanto a bola gira.
+   Ao sair, a borda some devagar (deixa um rastro); ao entrar, é imediata. */
+.casa { transition: border-color 0.28s, box-shadow 0.28s, transform 0.12s, filter 0.12s; }
+
+.casa.passando {
+    position: relative;
+    z-index: 2;
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 12px rgba(245, 216, 114, 0.9), inset 0 0 6px rgba(245, 216, 114, 0.45);
+    transform: scale(1.1);
+    transition: none;
 }
 
 .casa.vencedora {

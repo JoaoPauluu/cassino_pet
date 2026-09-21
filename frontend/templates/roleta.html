@@ -13,7 +13,10 @@
 
     <section class="status-rodada">
         <div class="roda-decorativa" id="roda-decorativa"></div>
-        <span id="status-badge" class="status-badge">Conectando à rodada...</span>
+        <div class="status-linha">
+            <span id="status-badge" class="status-badge">Conectando à rodada...</span>
+            <button type="button" id="btn-som" class="btn-som" onclick="alternarSom()" aria-label="Desativar som" title="Som ligado">🔊</button>
+        </div>
         <div id="resultado-numero" class="resultado-numero oculto"></div>
     </section>
 

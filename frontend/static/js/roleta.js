@@ -24,6 +24,16 @@ const INTERVALO_POLL_MS = 1500;
 const PAGAMENTO_NUMERO_MULT = 36;
 const PAGAMENTO_COR_MULT = 2.0;
 
+
+// Animação da bola: uma borda salta de número em número nesta ordem.
+// (Para seguir a ordem real da roda europeia, troque por
+// [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26])
+const ORDEM_ROLETA = Array.from({ length: 37 }, (_, i) => i);
+const SALTO_GIRO_MS = 85;        // intervalo entre saltos enquanto gira
+const SALTO_INICIAL_POUSO_MS = 60;
+const SALTO_FINAL_POUSO_MS = 320; // acréscimo no último salto (desaceleração)
+const SALTOS_MIN_POUSO = 12;      // a bola sempre desacelera por pelo menos isto
+
 const NUMEROS_VERMELHOS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
 function corDoNumero(n) {
@@ -42,6 +52,13 @@ let apostaProcessadaId = null; // id da rodada cujo resultado já foi exibido
 let minhasApostas = []; // lista de {number_bet, color_bet, money_bet} nesta rodada, vindas do servidor
 let historicoNumeros = [];
 let pollEmAndamento = false;
+
+let indiceCursor = 0;
+let timerCursor = null;
+let modoCursor = "parado";     // "parado" | "girando" | "pousando"
+let revelacaoPendente = null;  // função que mostra o resultado quando a bola parar
+let primeiraSincronizacao = true; // 1º poll só registra o estado: não toca sons "atrasados"
+const somTocadoNaRodada = { abertura: null, giro: null };
 
 function apostaMaxDisponivel() {
     return Math.max(APOSTA_MIN, Math.min(APOSTA_MAX_PADRAO, Math.floor(saldoAtual / APOSTA_PASSO) * APOSTA_PASSO));
@@ -167,13 +184,221 @@ function destacarVencedores(numero) {
 
 function limparSelecaoTabuleiro() {
     document.querySelectorAll(".casa").forEach((el) => {
-        el.classList.remove("selecionada", "vencedora");
+        el.classList.remove("selecionada", "vencedora", "passando");
     });
     document.querySelectorAll(".btn-cor").forEach((el) => {
         el.classList.remove("selecionada", "vencedora");
     });
     numeroSelecionado = null;
     corSelecionada = null;
+}
+
+/* ---------- BOLA: BORDA SALTANDO DE NÚMERO EM NÚMERO ---------- */
+
+function moverCursor(indice) {
+    const tabuleiro = document.getElementById("tabuleiro");
+    const anterior = tabuleiro.querySelector(".casa.passando");
+    if (anterior) anterior.classList.remove("passando");
+    indiceCursor = indice;
+    const atual = tabuleiro.querySelector(`.casa[data-numero="${ORDEM_ROLETA[indice]}"]`);
+    if (atual) atual.classList.add("passando");
+}
+
+function proximoIndice() {
+    return (indiceCursor + 1) % ORDEM_ROLETA.length;
+}
+
+function limparCursor() {
+    document.querySelectorAll(".casa.passando").forEach((el) => el.classList.remove("passando"));
+}
+
+// Enquanto a rodada está "running": gira em velocidade constante.
+function iniciarGiroCursor() {
+    if (modoCursor !== "parado") return;
+    modoCursor = "girando";
+    moverCursor(Math.floor(Math.random() * ORDEM_ROLETA.length));
+
+    const passo = () => {
+        if (modoCursor !== "girando") return;
+        moverCursor(proximoIndice());
+        somTique(false);
+        timerCursor = setTimeout(passo, SALTO_GIRO_MS);
+    };
+    timerCursor = setTimeout(passo, SALTO_GIRO_MS);
+}
+
+function pararGiroCursor() {
+    clearTimeout(timerCursor);
+    timerCursor = null;
+    modoCursor = "parado";
+    limparCursor();
+}
+
+// Quando o servidor informa o número sorteado: desacelera e para nele.
+function pousarCursor(numeroSorteado, aoTerminar) {
+    clearTimeout(timerCursor);
+    modoCursor = "pousando";
+
+    const alvo = ORDEM_ROLETA.indexOf(numeroSorteado);
+    let total = (alvo - indiceCursor + ORDEM_ROLETA.length) % ORDEM_ROLETA.length;
+    while (total < SALTOS_MIN_POUSO) total += ORDEM_ROLETA.length;
+
+    let dado = 0;
+    const passo = () => {
+        dado++;
+        moverCursor(proximoIndice());
+        somTique(true);
+        if (dado >= total) {
+            timerCursor = null;
+            modoCursor = "parado";
+            aoTerminar();
+            return;
+        }
+        const atraso = SALTO_INICIAL_POUSO_MS + SALTO_FINAL_POUSO_MS * Math.pow(dado / total, 3);
+        timerCursor = setTimeout(passo, atraso);
+    };
+    timerCursor = setTimeout(passo, SALTO_INICIAL_POUSO_MS);
+}
+
+/* ---------- EFEITOS SONOROS (Web Audio, sem arquivos) ---------- */
+
+let audioCtx = null;
+let somAtivo = true;
+try { somAtivo = localStorage.getItem("roleta_som") !== "off"; } catch (e) { /* sem storage */ }
+
+function contextoAudio() {
+    if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        audioCtx = new Ctx();
+    }
+    return audioCtx;
+}
+
+// Navegadores só liberam áudio após um gesto do usuário (clique, toque, tecla).
+function desbloquearAudio() {
+    const ctx = contextoAudio();
+    if (ctx && ctx.state === "suspended") ctx.resume();
+}
+["pointerdown", "keydown", "touchend"].forEach((ev) =>
+    document.addEventListener(ev, desbloquearAudio, { passive: true })
+);
+
+function audioPronto() {
+    if (!somAtivo) return null;
+    const ctx = contextoAudio();
+    if (!ctx) return null;
+    if (ctx.state !== "running") { ctx.resume(); return null; } // ainda bloqueado
+    return ctx;
+}
+
+function tom(ctx, { freq, freqFim = null, inicio = 0, duracao, tipo = "sine", volume = 0.2 }) {
+    const t0 = ctx.currentTime + inicio;
+    const osc = ctx.createOscillator();
+    const ganho = ctx.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqFim) osc.frequency.exponentialRampToValueAtTime(freqFim, t0 + duracao);
+    ganho.gain.setValueAtTime(0.0001, t0);
+    ganho.gain.exponentialRampToValueAtTime(volume, t0 + Math.min(0.015, duracao / 3));
+    ganho.gain.exponentialRampToValueAtTime(0.0001, t0 + duracao);
+    osc.connect(ganho).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duracao + 0.05);
+}
+
+function ruido(ctx, { inicio = 0, duracao, filtro = "lowpass", freq, freqFim, ataque = 0.01, volume = 0.3 }) {
+    const t0 = ctx.currentTime + inicio;
+    const total = Math.floor(ctx.sampleRate * duracao);
+    const buffer = ctx.createBuffer(1, total, ctx.sampleRate);
+    const dados = buffer.getChannelData(0);
+    for (let i = 0; i < total; i++) dados[i] = Math.random() * 2 - 1;
+
+    const fonte = ctx.createBufferSource();
+    fonte.buffer = buffer;
+    const f = ctx.createBiquadFilter();
+    f.type = filtro;
+    f.frequency.setValueAtTime(freq, t0);
+    f.frequency.exponentialRampToValueAtTime(freqFim, t0 + duracao);
+    const ganho = ctx.createGain();
+    ganho.gain.setValueAtTime(0.0001, t0);
+    ganho.gain.exponentialRampToValueAtTime(volume, t0 + ataque);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, t0 + duracao);
+    fonte.connect(f).connect(ganho).connect(ctx.destination);
+    fonte.start(t0);
+}
+
+// Três notas ascendentes: apostas abertas.
+function somAbertura() {
+    const ctx = audioPronto();
+    if (!ctx) return;
+    tom(ctx, { freq: 660, duracao: 0.35, tipo: "triangle", volume: 0.18 });
+    tom(ctx, { freq: 880, inicio: 0.12, duracao: 0.35, tipo: "triangle", volume: 0.18 });
+    tom(ctx, { freq: 1320, inicio: 0.24, duracao: 0.5, tipo: "triangle", volume: 0.16 });
+}
+
+// Sopro que sobe: a bola foi lançada.
+function somGiro() {
+    const ctx = audioPronto();
+    if (!ctx) return;
+    ruido(ctx, { duracao: 0.8, filtro: "bandpass", freq: 300, freqFim: 2200, ataque: 0.35, volume: 0.25 });
+    tom(ctx, { freq: 180, freqFim: 520, duracao: 0.7, tipo: "triangle", volume: 0.07 });
+}
+
+// Clique a cada salto da borda (mais forte na desaceleração final).
+function somTique(forte) {
+    const ctx = audioPronto();
+    if (!ctx) return;
+    tom(ctx, { freq: forte ? 1250 : 1000, duracao: 0.04, tipo: "triangle", volume: forte ? 0.09 : 0.045 });
+}
+
+function somPouso(ctx, inicio) {
+    tom(ctx, { freq: 330, freqFim: 110, inicio, duracao: 0.22, tipo: "sine", volume: 0.35 });
+    ruido(ctx, { inicio, duracao: 0.05, filtro: "highpass", freq: 3000, freqFim: 5000, ataque: 0.003, volume: 0.2 });
+}
+
+function somVitoria(ctx, inicio) {
+    [523, 659, 784, 1047].forEach((freq, i) => {
+        tom(ctx, { freq, inicio: inicio + i * 0.09, duracao: i === 3 ? 0.6 : 0.25, tipo: "triangle", volume: 0.16 });
+    });
+}
+
+function somDerrota(ctx, inicio) {
+    tom(ctx, { freq: 392, inicio, duracao: 0.25, tipo: "triangle", volume: 0.14 });
+    tom(ctx, { freq: 294, inicio: inicio + 0.18, duracao: 0.45, tipo: "triangle", volume: 0.14 });
+}
+
+// resultado: "ganhou" | "perdeu" | "sem-aposta"
+function somResultado(resultado) {
+    const ctx = audioPronto();
+    if (!ctx) return;
+    somPouso(ctx, 0);
+    if (resultado === "ganhou") somVitoria(ctx, 0.25);
+    else if (resultado === "perdeu") somDerrota(ctx, 0.25);
+}
+
+// Toca cada som no máximo uma vez por rodada — e nunca no 1º poll depois
+// de abrir a página (o estado já estava em andamento, não é um evento novo).
+function tocarUmaVez(tipo, rodadaId, funcao) {
+    if (somTocadoNaRodada[tipo] === rodadaId) return;
+    somTocadoNaRodada[tipo] = rodadaId;
+    if (!primeiraSincronizacao) funcao();
+}
+
+function atualizarBotaoSom() {
+    const btn = document.getElementById("btn-som");
+    if (!btn) return;
+    btn.innerText = somAtivo ? "🔊" : "🔇";
+    btn.classList.toggle("mudo", !somAtivo);
+    btn.title = somAtivo ? "Som ligado" : "Som desligado";
+    btn.setAttribute("aria-label", somAtivo ? "Desativar som" : "Ativar som");
+}
+
+function alternarSom() {
+    somAtivo = !somAtivo;
+    try { localStorage.setItem("roleta_som", somAtivo ? "on" : "off"); } catch (e) { /* sem storage */ }
+    atualizarBotaoSom();
+    desbloquearAudio();
 }
 
 /* ---------- ESTADO DA RODADA ---------- */
@@ -256,7 +481,7 @@ function mostrarResultadoPessoal(numeroSorteado) {
     if (!minhasApostas || minhasApostas.length === 0) {
         msg.innerText = `Número sorteado: ${numeroSorteado}. Você não apostou nesta rodada.`;
         msg.classList.add("perdeu");
-        return;
+        return "sem-aposta";
     }
 
     let totalGanho = 0;
@@ -272,10 +497,11 @@ function mostrarResultadoPessoal(numeroSorteado) {
     if (totalGanho > 0) {
         msg.innerText = `Saiu o ${numeroSorteado}! Você acertou ${acertos} de ${minhasApostas.length} aposta(s) e ganhou ${formataDinheiro(totalGanho)}.`;
         msg.classList.add("ganhou");
-    } else {
-        msg.innerText = `Saiu o ${numeroSorteado}. Nenhuma das suas ${minhasApostas.length} aposta(s) venceu desta vez.`;
-        msg.classList.add("perdeu");
+        return "ganhou";
     }
+    msg.innerText = `Saiu o ${numeroSorteado}. Nenhuma das suas ${minhasApostas.length} aposta(s) venceu desta vez.`;
+    msg.classList.add("perdeu");
+    return "perdeu";
 }
 
 /* ---------- PAINEL DE JOGADORES ---------- */
@@ -389,10 +615,37 @@ async function confirmarAposta() {
     }
 }
 
+// Mostra o número sorteado, destaca vencedores, atualiza histórico/saldo.
+// Só é chamada depois que a bola "pousou" (ou direto, se a página abriu com
+// a rodada já encerrada).
+async function revelarResultado(idRodada, numero, semSom) {
+    pararGiroCursor();
+    mostrarNumeroResultado(numero);
+    destacarVencedores(numero);
+    registrarHistorico(numero);
+    const resultado = mostrarResultadoPessoal(numero);
+    if (!semSom) somResultado(resultado);
+    atualizarStatusBadge(statusAtual);
+
+    const saldo = await obterSaldo();
+    if (saldo !== null && saldo !== undefined) {
+        saldoAtual = saldo;
+        modificarSaldoNaTela(saldoAtual);
+    }
+}
+
 async function processarRodada(rodada) {
     const novoId = rodada ? rodada.id : null;
 
     if (novoId !== rodadaAtualId) {
+        // Se a bola ainda estava pousando, conclui o resultado da rodada
+        // anterior (histórico/saldo) antes de limpar a tela.
+        if (revelacaoPendente) {
+            const pendente = revelacaoPendente;
+            revelacaoPendente = null;
+            pendente(true);
+        }
+        pararGiroCursor();
         rodadaAtualId = novoId;
         minhasApostas = [];
         limparSelecaoTabuleiro();
@@ -402,7 +655,17 @@ async function processarRodada(rodada) {
     }
 
     statusAtual = rodada ? rodada.status : null;
-    atualizarStatusBadge(statusAtual);
+    // Enquanto a bola desacelera, o selo continua mostrando "bola girando".
+    atualizarStatusBadge(modoCursor === "pousando" ? "running" : statusAtual);
+
+    if (rodada && statusAtual === "waiting_for_bets") tocarUmaVez("abertura", rodada.id, somAbertura);
+    if (rodada && statusAtual === "running") {
+        tocarUmaVez("giro", rodada.id, somGiro);
+        iniciarGiroCursor();
+    } else if (modoCursor === "girando") {
+        // Rodada saiu de "running" sem número sorteado ainda (ou sem rodada): pausa a borda.
+        if (!(rodada && statusAtual === "ended")) pararGiroCursor();
+    }
 
     if (!rodada) {
         aplicarBloqueioTabuleiro();
@@ -427,17 +690,21 @@ async function processarRodada(rodada) {
     atualizarBotaoApostar();
 
     if (rodada.status === "ended" && rodada.number_draw !== null && rodada.number_draw !== undefined) {
-        mostrarNumeroResultado(rodada.number_draw);
-
         if (apostaProcessadaId !== rodada.id) {
             apostaProcessadaId = rodada.id;
-            destacarVencedores(rodada.number_draw);
-            registrarHistorico(rodada.number_draw);
-            mostrarResultadoPessoal(rodada.number_draw);
-            const saldo = await obterSaldo();
-            if (saldo !== null && saldo !== undefined) {
-                saldoAtual = saldo;
-                modificarSaldoNaTela(saldoAtual);
+            const idRodada = rodada.id;
+            const numero = rodada.number_draw;
+
+            if (primeiraSincronizacao) {
+                // Página aberta com a rodada já encerrada: mostra direto, sem animação nem som.
+                await revelarResultado(idRodada, numero, true);
+            } else {
+                revelacaoPendente = (semSom) => revelarResultado(idRodada, numero, semSom);
+                pousarCursor(numero, () => {
+                    const pendente = revelacaoPendente;
+                    revelacaoPendente = null;
+                    if (pendente) pendente(false);
+                });
             }
         }
     } else {
@@ -451,6 +718,7 @@ async function tick() {
     try {
         const rodada = await apiGet("/roulette/games/current");
         await processarRodada(rodada);
+        primeiraSincronizacao = false;
     } catch (error) {
         atualizarStatusBadge(null);
     } finally {
@@ -460,6 +728,7 @@ async function tick() {
 
 async function inicializar() {
     gerarTabuleiro();
+    atualizarBotaoSom();
     atualizarDisplayAposta();
     atualizarBotaoApostar();
 

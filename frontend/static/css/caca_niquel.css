@@ -239,6 +239,20 @@
 
 .btn-paytable:hover { color: var(--text-main); border-color: var(--text-muted); }
 
+.btn-som {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-som:hover { color: var(--text-main); border-color: var(--text-muted); }
+
 /* TABELA DE PRÊMIOS */
 .paytable {
     width: 100%;
