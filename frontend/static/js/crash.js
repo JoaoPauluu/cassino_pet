@@ -46,7 +46,7 @@ let animacaoId = null;
 
 // Converte segundos decorridos no multiplicador correspondente.
 // Espelha fielmente time_to_crash_multiplier() do backend.
-function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO, subUm = false) {
+function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO, subUm = True) {
     if (segundos <= 0.0) return subUm ? 0.0 : 1.0;
     if (subUm) {
         const m = segundos / 0.5;
@@ -61,7 +61,8 @@ function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO, su
 // Retorna null durante a fase de preparação (ainda não é um multiplicador real).
 function multiplicadorAgora() {
     if (!inicioRodada) return null;
-    const decorrido = (Date.now() - inicioRodada.getTime()) / 1000;
+    // Compensa pelos 15 segundos de diferença.
+    const decorrido = (Date.now() - (inicioRodada.getTime() + 15000)) / 1000;
     if (decorrido < DURACAO_SUB_UM) return null;
     return tempoParaMultiplicador(decorrido - DURACAO_SUB_UM, TAXA_CRESCIMENTO, false);
 }
@@ -164,7 +165,7 @@ function loopAnimacao() {
 function iniciarAnimacaoLocal() {
     if (animacaoId) return;
     animacaoId = setInterval(loopAnimacao, INTERVALO_ANIMACAO_MS);
-}
+}   
 
 function pararAnimacaoLocal() {
     if (!animacaoId) return;
@@ -422,7 +423,7 @@ async function sacar() {
         const resp = await fetch(`${baseUrl}/crash/games/${rodadaAtualId}/cashout`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: jogadorID }),
+            body: JSON.stringify({ player: jogadorID, multiplier: multiplicadorAgora() }),
         });
 
         if (!resp.ok) {

@@ -95,7 +95,7 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             continue
 
         # Espera as apostas serem feitas
-        await asyncio.sleep(30)
+        await asyncio.sleep(15)
 
         # Sorteia o resultado do jogo
         draw = 0
@@ -104,7 +104,8 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             request_body = {"status": "running"}
             request = await client.patch(f"{URL}/crash/games/{current_game_id}/status", json=request_body)
 
-            logger.info(logger.info(request.json()))
+            logger.info("Multiplicador Sorteado: " + str(draw))
+            logger.info(request.json())
 
         except Exception as e:
             logger.error(f"Erro ao rodar o jogo: {e}")
@@ -132,7 +133,7 @@ async def crash_routine(client: httpx.AsyncClient, URL: str):
             await asyncio.sleep(5)
             continue
 
-        
+
         # Espera os jogadores verem o resultado
         await asyncio.sleep(10)
 
