@@ -32,7 +32,10 @@ const MARGEM_GRAFICO = { esq: 46, dir: 16, topo: 16, base: 26 };
 const REDUZIR_MOVIMENTO = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const TAXA_CRESCIMENTO = 0.06;    // igual ao growth_rate do backend
-const DURACAO_SUB_UM = 0.5;       // segundos de "preparação" antes do 1.00x
+const DURACAO_SUB_UM = 0.5;       // janela (s) em que o backend encaixa as explosões abaixo de 1x
+// Valor da curva exponencial no fim da janela sub-1 (~1.03x). A rampa inicial
+// termina exatamente aqui, então o número passa para a exponencial sem saltos.
+const MULT_FIM_SUB_UM = Math.exp(TAXA_CRESCIMENTO * DURACAO_SUB_UM);
 
 let saldoAtual = 0;
 let apostaAtual = APOSTA_MIN;
@@ -52,33 +55,44 @@ const somTocadoNaRodada = { abertura: null, decolagem: null, explosao: null };
 
 /* ---------- FÓRMULA DE MULTIPLICADOR (espelho do backend) ---------- */
 
-// Converte segundos decorridos no multiplicador correspondente.
-// Espelha fielmente time_to_crash_multiplier() do backend.
-function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO, subUm = true) {
-    if (segundos <= 0.0) return subUm ? 0.0 : 1.0;
-    if (subUm) {
-        const m = segundos / 0.5;
-        return Math.round(Math.min(m, 0.99) * 100) / 100;
+// Converte segundos decorridos (desde a decolagem) no multiplicador exibido.
+//
+// Linha do tempo do backend (crash_multiplier_to_time, em random_drawer.py),
+// ambas contadas a partir do MESMO instante zero:
+//   - m >= 1  -> explode em ln(m) / k segundos       (m = e^(k·t))
+//   - m <  1  -> explode em m · 0,5 segundos         (dentro dos primeiros 0,5 s)
+//
+// Para t >= 0,5 s usamos exatamente e^(k·t), então todo crash >= ~1.03x
+// acontece com o número na tela batendo com o valor sorteado. Nos primeiros
+// 0,5 s o número sobe numa rampa linear de 0 até e^(k·0,5) (~1.03x): assim
+// explosões abaixo de 1x aparecem perto do valor certo e a transição para a
+// exponencial é contínua (sem ficar travado em 0.99x nem pular 1.00–1.05x).
+function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO) {
+    if (segundos <= 0.0) return 0.0;
+    let m;
+    if (segundos < DURACAO_SUB_UM) {
+        m = (segundos / DURACAO_SUB_UM) * MULT_FIM_SUB_UM;
+    } else {
+        m = Math.exp(taxaCrescimento * segundos);
     }
-    const m = Math.exp(taxaCrescimento * segundos);
     return Math.round(m * 100) / 100;
 }
 
-// Multiplicador "de exibição" no instante atual, considerando a fase de
-// preparação (sub-1.00x) antes do cronômetro de crescimento propriamente dito.
-// Retorna null durante a fase de preparação (ainda não é um multiplicador real).
+// Segundos decorridos desde a decolagem, no mesmo relógio do backend
+// (t = 0 é o instante em que crash_multiplier_to_time começa a contar).
+// Retorna null antes da decolagem (ex.: pequena diferença de relógio).
 function tempoDeCrescimento() {
     if (!inicioRodada) return null;
     // Compensa pelos 15 segundos de diferença.
     const decorrido = (Date.now() - (inicioRodada.getTime() + 15000)) / 1000;
-    if (decorrido < DURACAO_SUB_UM) return null;
-    return decorrido - DURACAO_SUB_UM;
+    if (decorrido < 0) return null;
+    return decorrido;
 }
 
 function multiplicadorAgora() {
     const t = tempoDeCrescimento();
     if (t === null) return null;
-    return tempoParaMultiplicador(t, TAXA_CRESCIMENTO, t < 1);
+    return tempoParaMultiplicador(t, TAXA_CRESCIMENTO);
 }
 
 function corDoMultiplicador(m) {
