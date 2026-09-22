@@ -23,7 +23,7 @@ const NOME_JOGO = "crash";
 const APOSTA_MIN = 10;
 const APOSTA_PASSO = 10;
 const APOSTA_MAX_PADRAO = 500;
-const INTERVALO_POLL_MS = 1500;   // sincronização com o servidor (status, apostas, resultado)
+const INTERVALO_POLL_MS = 300;   // sincronização com o servidor (status, apostas, resultado)
 
 // Gráfico: a trilha "cresce" até esta fração da área útil e depois os eixos
 // passam a se expandir, mantendo o foguete sempre visível.
