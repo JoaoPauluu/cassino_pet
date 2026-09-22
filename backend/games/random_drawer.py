@@ -25,9 +25,12 @@ def crashout():
     ligma = round(rand.random(),2)
     mult = 1 / (1 - ligma)
 
-    maxmult = 10
+    maxmult = 1000
     if mult > maxmult:
         mult = maxmult
+
+    if mult > 10:
+        mult = 10 + mult*0.2
 
     return round(mult, 2)
 
