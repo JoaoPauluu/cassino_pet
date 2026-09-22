@@ -153,6 +153,8 @@ cython_debug/
 *.swo
 .DS_Store
 
+*.batch
+*.bat
 
 
 # Deprecated files
