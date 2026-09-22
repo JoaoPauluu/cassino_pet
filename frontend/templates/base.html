@@ -48,10 +48,42 @@
     {% block content %}{% endblock %}
 
 
+    <!-- POPUP DE ALERTA: SALDO ABAIXO DE R$ 10,00 -->
+    <div id="popup-alerta" class="popup-overlay" role="alertdialog" aria-modal="true"
+         aria-labelledby="popup-titulo" hidden>
+        <div class="popup-caixa">
+            <img src="{{ url_for('static', filename='img/alerta.jpg') }}"
+                 alt="Alerta" class="popup-imagem"
+                 onerror="this.style.display='none'">
+
+            <h2 id="popup-titulo" class="popup-titulo">💀 Calma, calma...<br>o saldo foi de arrasta.</h2>
+
+            <p class="popup-texto">
+                Não tenta recuperar no modo <strong>“agora vai”</strong>:
+                é assim que a coisa pode virar uma <strong>bola de neve</strong>.
+            </p>
+
+            <ul class="popup-lista">
+                <li><span>🫵</span> Se perdeu, <strong>encerra por aqui.</strong></li>
+                <li><span>💸</span> Dinheiro perdido não precisa virar <strong>mais dinheiro perdido.</strong></li>
+                <li><span>🚫</span> <strong>“Só mais uma”</strong> é exatamente o tipo de frase que dá ruim.</li>
+            </ul>
+
+            <p class="popup-rodape">
+                Esse cassino é uma simulação. Na vida real, apostar pode causar
+                <strong>prejuízos e dependência.</strong>
+            </p>
+
+            <button type="button" class="popup-botao" onclick="fecharPopupAlerta()">Entendi</button>
+        </div>
+    </div>
+
     <!-- JOGADOR NOME É DEFINIDO AQUI PARA EVITAR ERRO DO JINJA DENTRO DE BASE.JS -->
 
     <script>
-        const jogadorNome = {{ session.get("username")|tojson }};
+        // usuarioSessao guarda o valor original da sessão (null = None no Flask)
+        const usuarioSessao = {{ session.get("username")|tojson }};
+        let jogadorNome = usuarioSessao;
     </script>
     <script src="{{ url_for('static', filename='js/base.js') }}"></script>
     {% block scripts %}{% endblock %}

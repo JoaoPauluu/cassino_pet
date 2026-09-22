@@ -21,8 +21,46 @@ function formataDinheiro(dinheiro) {
     }
 
 function modificarSaldoNaTela(v) {
+    if (typeof v !== "number") return;
     document.getElementById("saldo-jogador").innerText = formataDinheiro(v);
+    verificarSaldoBaixo(v);
 }
+
+// ===== POPUP DE ALERTA: SALDO ABAIXO DE R$ 10,00 =====
+const LIMITE_SALDO_ALERTA = 10;
+let alertaJaMostrado = false;
+
+function verificarSaldoBaixo(saldo) {
+    // Só alerta se houver usuário na sessão (não for None)
+    if (usuarioSessao === null) return;
+
+    if (saldo < LIMITE_SALDO_ALERTA) {
+        // Mostra uma vez a cada vez que o saldo cair abaixo do limite
+        if (!alertaJaMostrado) {
+            alertaJaMostrado = true;
+            abrirPopupAlerta();
+        }
+    } else {
+        // Saldo voltou a ficar >= 10: libera o alerta para a próxima queda
+        alertaJaMostrado = false;
+    }
+}
+
+function abrirPopupAlerta() {
+    const popup = document.getElementById("popup-alerta");
+    if (!popup) return;
+    popup.hidden = false;
+    popup.querySelector(".popup-botao").focus();
+}
+
+function fecharPopupAlerta() {
+    const popup = document.getElementById("popup-alerta");
+    if (popup) popup.hidden = true;
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fecharPopupAlerta();
+});
 
 async function buscarJogador(nome, dispositivo) {
     try {
