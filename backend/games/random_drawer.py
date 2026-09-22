@@ -20,9 +20,9 @@ def crashout():
     houseedge = 0.2
 
     if rand.random() < houseedge:
-        return round(rand.uniform(0, 1),2)
+        return round(rand.uniform(0, 1),3)
     
-    ligma = rand.random()
+    ligma = round(rand.random(),2)
     mult = 1 / (1 - ligma)
 
     maxmult = 100
