@@ -25,7 +25,7 @@ def crashout():
     ligma = round(rand.random(),2)
     mult = 1 / (1 - ligma)
 
-    maxmult = 100
+    maxmult = 10
     if mult > maxmult:
         mult = maxmult
 
