@@ -48,7 +48,7 @@ def crash_multiplier_to_time(multiplier, growth_rate=0.06):
     # For multipliers under 1.0x, time scales linearly in a fraction of a second
     if multiplier < 1.0:
         # e.g., 0.5x crashes halfway through the 1-second mark
-        return round(multiplier * 0.5, 3)
+        return round(multiplier * 0.5, 2)
 
     # Exponential elapsed time calculation for multipliers >= 1.0x
     seconds = math.log(multiplier) / growth_rate

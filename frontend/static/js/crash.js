@@ -78,7 +78,7 @@ function tempoDeCrescimento() {
 function multiplicadorAgora() {
     const t = tempoDeCrescimento();
     if (t === null) return null;
-    return tempoParaMultiplicador(t, TAXA_CRESCIMENTO, false);
+    return tempoParaMultiplicador(t, TAXA_CRESCIMENTO, t < 1);
 }
 
 function corDoMultiplicador(m) {
