@@ -37,6 +37,20 @@ const DURACAO_SUB_UM = 0.5;       // janela (s) em que o backend encaixa as expl
 // termina exatamente aqui, então o número passa para a exponencial sem saltos.
 const MULT_FIM_SUB_UM = Math.exp(TAXA_CRESCIMENTO * DURACAO_SUB_UM);
 
+// O frontend só descobre que o foguete explodiu no próximo poll (até
+// INTERVALO_POLL_MS depois, mais a latência da rede). Se a animação andasse
+// exatamente no relógio do servidor, ela passaria do ponto de explosão nesse
+// intervalo e depois "voltaria" para o valor oficial (o roll back). Para
+// evitar isso, a exibição anda um pouco atrás do servidor: quando o "ended"
+// chega, o número na tela ainda está ABAIXO do crash e só avança até ele.
+// Se ainda aparecer roll back (rede lenta, loop do backend demorando para
+// encerrar a rodada), aumente este valor.
+const ATRASO_EXIBICAO_S = (INTERVALO_POLL_MS / 1000) + 0.2;
+
+// Diferença (ms) entre o relógio do servidor e o do navegador. Só é usada se
+// a API mandar `server_time` em /crash/games/current; caso contrário fica 0.
+let desvioRelogioMs = 0;
+
 let saldoAtual = 0;
 let apostaAtual = APOSTA_MIN;
 
@@ -67,24 +81,38 @@ const somTocadoNaRodada = { abertura: null, decolagem: null, explosao: null };
 // 0,5 s o número sobe numa rampa linear de 0 até e^(k·0,5) (~1.03x): assim
 // explosões abaixo de 1x aparecem perto do valor certo e a transição para a
 // exponencial é contínua (sem ficar travado em 0.99x nem pular 1.00–1.05x).
-function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO) {
+function curvaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO) {
     if (segundos <= 0.0) return 0.0;
-    let m;
-    if (segundos < DURACAO_SUB_UM) {
-        m = (segundos / DURACAO_SUB_UM) * MULT_FIM_SUB_UM;
-    } else {
-        m = Math.exp(taxaCrescimento * segundos);
-    }
+    if (segundos < DURACAO_SUB_UM) return (segundos / DURACAO_SUB_UM) * MULT_FIM_SUB_UM;
+    return Math.exp(taxaCrescimento * segundos);
+}
+
+// Inclinação da curva (multiplicador por segundo), usada para girar o foguete.
+function derivadaCurva(segundos, taxaCrescimento = TAXA_CRESCIMENTO) {
+    if (segundos < DURACAO_SUB_UM) return MULT_FIM_SUB_UM / DURACAO_SUB_UM;
+    return taxaCrescimento * Math.exp(taxaCrescimento * segundos);
+}
+
+// Inversa da curva: em que instante a tela mostra o multiplicador m.
+function multiplicadorParaTempo(m, taxaCrescimento = TAXA_CRESCIMENTO) {
+    if (m <= 0) return 0;
+    if (m < MULT_FIM_SUB_UM) return (m / MULT_FIM_SUB_UM) * DURACAO_SUB_UM;
+    return Math.log(m) / taxaCrescimento;
+}
+
+function tempoParaMultiplicador(segundos, taxaCrescimento = TAXA_CRESCIMENTO) {
+    const m = curvaMultiplicador(segundos, taxaCrescimento);
     return Math.round(m * 100) / 100;
 }
 
 // Segundos decorridos desde a decolagem, no mesmo relógio do backend
-// (t = 0 é o instante em que crash_multiplier_to_time começa a contar).
-// Retorna null antes da decolagem (ex.: pequena diferença de relógio).
+// (t = 0 é o instante em que crash_multiplier_to_time começa a contar),
+// menos o atraso de exibição. Retorna null antes da decolagem.
 function tempoDeCrescimento() {
     if (!inicioRodada) return null;
+    const agoraServidor = Date.now() + desvioRelogioMs;
     // Compensa pelos 15 segundos de diferença.
-    const decorrido = (Date.now() - (inicioRodada.getTime() + 15000)) / 1000;
+    const decorrido = (agoraServidor - (inicioRodada.getTime() + 15000)) / 1000 - ATRASO_EXIBICAO_S;
     if (decorrido < 0) return null;
     return decorrido;
 }
@@ -195,11 +223,11 @@ function desenharGrafico(t, caiu) {
     area.h = area.y1 - area.y0;
 
     const tAtual = t === null ? 0 : t;
-    const m = Math.exp(TAXA_CRESCIMENTO * tAtual);
+    const m = curvaMultiplicador(tAtual);
     const xMax = Math.max(10, tAtual / PROPORCAO_ALVO);
-    const yMax = Math.max(2, 1 + (m - 1) / PROPORCAO_ALVO);
+    const yMax = Math.max(2, m / PROPORCAO_ALVO);
     const px = (seg) => area.x0 + (seg / xMax) * area.w;
-    const py = (mult) => area.y1 - ((mult - 1) / (yMax - 1)) * area.h;
+    const py = (mult) => area.y1 - (mult / yMax) * area.h;
 
     ctx.clearRect(0, 0, largura, altura);
 
@@ -209,10 +237,10 @@ function desenharGrafico(t, caiu) {
     ctx.fillStyle = coresGrafico.texto;
     ctx.strokeStyle = coresGrafico.grade;
 
-    const passoY = passoBonito(yMax - 1, 4);
+    const passoY = passoBonito(yMax, 4);
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    for (let v = 1; v <= yMax + 1e-9; v += passoY) {
+    for (let v = 0; v <= yMax + 1e-9; v += passoY) {
         const y = Math.round(py(v)) + 0.5;
         ctx.beginPath();
         ctx.moveTo(area.x0, y);
@@ -237,13 +265,16 @@ function desenharGrafico(t, caiu) {
     const cor = caiu ? coresGrafico.caiu : coresGrafico.linha;
     if (tAtual > 0) {
         const amostras = 120;
+        const segs = [];
+        for (let i = 0; i <= amostras; i++) segs.push((tAtual * i) / amostras);
+        if (tAtual > DURACAO_SUB_UM) segs.push(DURACAO_SUB_UM);
+        segs.sort((a, b) => a - b);
         ctx.beginPath();
-        for (let i = 0; i <= amostras; i++) {
-            const seg = (tAtual * i) / amostras;
+        segs.forEach((seg, i) => {
             const x = px(seg);
-            const y = py(Math.exp(TAXA_CRESCIMENTO * seg));
+            const y = py(curvaMultiplicador(seg));
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
+        });
 
         ctx.save();
         ctx.lineJoin = "round";
@@ -268,7 +299,7 @@ function desenharGrafico(t, caiu) {
     const x = px(tAtual);
     const y = py(m);
     const inclinacaoX = area.w / xMax;
-    const inclinacaoY = -(TAXA_CRESCIMENTO * m / (yMax - 1)) * area.h;
+    const inclinacaoY = -(derivadaCurva(tAtual) / yMax) * area.h;
     const tangente = tAtual > 0 ? Math.atan2(inclinacaoY, inclinacaoX) : 0;
     let rotacao = tAtual > 0 ? (tangente * 180) / Math.PI + 45 : 0; // 🚀 aponta a 45° por padrão
     let dx = 0, dy = 0;
@@ -301,7 +332,7 @@ function atualizarPalco(m, caiu = false) {
     if (caiu) {
         numero.innerText = m !== null ? `${m.toFixed(2)}x` : "—";
         numero.classList.add("caiu");
-        desenharGrafico(m !== null ? Math.log(Math.max(m, 1)) / TAXA_CRESCIMENTO : 0, true);
+        desenharGrafico(m !== null ? multiplicadorParaTempo(m) : 0, true);
         return;
     }
 
@@ -834,11 +865,22 @@ async function processarRodada(rodada) {
     atualizarBotaoAcao();
 }
 
+// Se a API informar a hora dela (`server_time`), estima a diferença entre os
+// relógios usando o meio da requisição. Sem esse campo, nada muda.
+function atualizarDesvioRelogio(rodada, antes, depois) {
+    if (!rodada || !rodada.server_time) return;
+    const servidor = new Date(rodada.server_time).getTime();
+    if (Number.isNaN(servidor)) return;
+    desvioRelogioMs = servidor - (antes + depois) / 2;
+}
+
 async function tick() {
     if (pollEmAndamento) return;
     pollEmAndamento = true;
     try {
+        const antes = Date.now();
         const rodada = await apiGet("/crash/games/current");
+        atualizarDesvioRelogio(rodada, antes, Date.now());
         await processarRodada(rodada);
         primeiraSincronizacao = false;
     } catch (error) {
