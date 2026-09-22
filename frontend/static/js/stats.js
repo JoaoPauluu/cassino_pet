@@ -351,7 +351,7 @@ async function renderizarCrash(jogos) {
     const pontos = recentes.map(pontoCrash).filter(p => p !== null);
     const media = pontos.length ? pontos.reduce((a, b) => a + b, 0) / pontos.length : 0;
     nota.innerText = pontos.length
-        ? `${jogos.length} rodada(s) · média ${media.toFixed(2)}x`
+        ? `${jogos.length} rodada(s)`
         : `${jogos.length} rodada(s)`;
 
     const maior = Math.max(1, ...pontos);
