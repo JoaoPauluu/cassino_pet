@@ -36,6 +36,29 @@ async function pegarOuVazio(caminho, padrao) {
     }
 }
 
+// Busca TODAS as linhas de /statistics, pagina por pagina.
+// A API devolve no maximo 1000 linhas por chamada (padrao: 100),
+// entao sem isso o painel so enxergava as 100 apostas mais recentes.
+async function pegarTodasEstatisticas(filtros) {
+    const TAM_PAGINA = 1000;
+    const separador = filtros ? "&" : "?";
+    let todas = [];
+    let offset = 0;
+    try {
+        while (true) {
+            const pagina = await pegar(`/statistics${filtros}${separador}limit=${TAM_PAGINA}&offset=${offset}`);
+            const linhas = comoLista(pagina);
+            todas = todas.concat(linhas);
+            const total = Number(pagina?.total);
+            offset += linhas.length;
+            if (linhas.length < TAM_PAGINA || (Number.isFinite(total) && offset >= total)) break;
+        }
+    } catch (erro) {
+        console.warn(erro);
+    }
+    return todas;
+}
+
 // A API pode devolver uma lista direta ou algo como { items: [...] }.
 function comoLista(dados) {
     if (Array.isArray(dados)) return dados;
@@ -470,7 +493,7 @@ function renderizarKPIs(resumo, linhas, jogadores) {
     // Usa o /statistics/summary quando ele traz os totais; senao soma as linhas.
     let apostado = numero(campo(resumo, ["total_bet", "bet", "total_bets", "sum_bet"], NaN));
     let pago = numero(campo(resumo, ["total_win", "win", "total_wins", "sum_win"], NaN));
-    let rodadas = numero(campo(resumo, ["count", "total", "rounds", "plays"], NaN));
+    let rodadas = numero(campo(resumo, ["rounds_played", "count", "total", "rounds", "plays"], NaN));
 
     if (!campo(resumo, ["total_bet", "bet", "total_bets", "sum_bet"])) {
         apostado = linhas.reduce((soma, l) => soma + numero(campo(l, ["bet", "bet_amount", "amount"], 0)), 0);
@@ -849,7 +872,7 @@ async function carregarEstatisticas() {
 
         const [jogadores, linhas, resumo, roleta, crash, jogos] = await Promise.all([
             pegarOuVazio("/players", []),
-            pegarOuVazio("/statistics" + filtros, []),
+            pegarTodasEstatisticas(filtros),
             pegarOuVazio("/statistics/summary" + filtros, {}),
             pegarOuVazio("/roulette/games", []),
             pegarOuVazio("/crash/games", []),
